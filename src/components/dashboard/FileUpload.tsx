@@ -6,7 +6,7 @@ import { REQUIRED_COLUMNS } from '@/config/constants';
 import * as XLSX from 'xlsx';
 
 export const FileUpload: React.FC = () => {
-  const { addNewData, allData } = useDashboard();
+  const { addNewData, allData, refreshData } = useDashboard();
   const [isDragging, setIsDragging] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     isValid: boolean;
@@ -84,7 +84,9 @@ export const FileUpload: React.FC = () => {
       }
 
       // Adiciona os novos dados (merge com existentes)
-      addNewData(newData);
+      await addNewData(newData);
+
+      await refreshData();
 
       setValidationResult({
         isValid: true,
@@ -99,7 +101,7 @@ export const FileUpload: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [addNewData]);
+  }, [addNewData, refreshData]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
