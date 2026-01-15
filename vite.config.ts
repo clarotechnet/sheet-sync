@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: "/sheet-sync/",   // 👈 IMPORTANTE PARA GITHUB PAGES
+
   server: {
     host: "::",
     port: 8080,
