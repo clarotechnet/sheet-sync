@@ -35,6 +35,7 @@ export const DataTable: React.FC = () => {
             <tr>
               <th>Recurso</th>
               <th>Tipo de Atividade</th>
+              <th>Contrato</th>
               <th>Cód de Baixa 1</th>
               <th>Status</th>
               <th>Intervalo de Tempo</th>
@@ -43,7 +44,7 @@ export const DataTable: React.FC = () => {
           <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-muted-foreground">
+                <td colSpan={6} className="text-center py-12 text-muted-foreground">
                   Nenhum dado para exibir
                 </td>
               </tr>
@@ -54,6 +55,7 @@ export const DataTable: React.FC = () => {
                   <tr key={index}>
                     <td>{item.Recurso || 'N/A'}</td>
                     <td>{item['Tipo de Atividade'] || 'N/A'}</td>
+                    <td>{item.Contrato || item.contrato || 'N/A'}</td>
                     <td>{item['Cód de Baixa 1'] || 'N/A'}</td>
                     <td>
                       <span style={{ color: getStatusColor(status), fontWeight: 600 }}>
