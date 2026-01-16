@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { filterExcludedServiceTypes } from '@/utils/activityHelpers';
 import * as XLSX from 'xlsx';
+import { Item } from '@radix-ui/react-accordion';
 
 interface MultiSelectProps {
   label: string;
@@ -85,6 +86,16 @@ export const Filters: React.FC = () => {
     return [...new Set(baseData.map(item => item['Tipo de Atividade'] || '').filter(Boolean))].sort();
   }, [baseData]);
 
+  const cities = useMemo(() => {
+    return [...new Set(baseData.map(item => (item.Cidade || item.cidade || '')).filter(Boolean))].sort();
+  }, [baseData]);
+
+  const productivityOptions = [
+    { value: 'all', label: 'Todas' },
+    { value: 'productive', label: 'Produtivas' },
+    { value: 'unproductive', label: 'Improdutivas' }
+  ];
+
   const exportCSV = () => {
     if (filteredData.length === 0) {
       alert('Nenhum dado para exportar');
@@ -153,6 +164,26 @@ export const Filters: React.FC = () => {
           onChange={(selected) => setFilters({ activityTypes: selected })}
         />
         
+        <MultiSelect
+          label="Cidade"
+          options={cities}
+          selected={filters.cities}
+          onChange={(selected) => setFilters({ cities: selected })}
+        />
+
+        <div className="form-group">
+          <Label className="form-label">Produtividade</Label>
+          <select
+            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
+            value={filters.productivityFilter}
+            onChange={(e) => setFilters({ productivityFilter: e.target.value as 'all' | 'productive' | 'unproductive' })}
+          >
+            {productivityOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="form-group">
           <Label className="form-label">Data Inicial</Label>
           <Input

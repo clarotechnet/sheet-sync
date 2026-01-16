@@ -29,6 +29,8 @@ export interface FilterState {
   searchText: string;
   startDate: string;
   endDate: string;
+  cities: string[];
+  productivityFilter: 'all' | 'productive' | 'unproductive';
 }
 
 export type ActivityStatus = 'Produtiva' | 'Improdutiva' | 'Pendente';

@@ -30,11 +30,9 @@ export const useGoogleSheets = (): UseGoogleSheetsReturn => {
     
     try {
       console.log("Buscando dados do Google Sheets...");
-      
-      // Usar mode: 'no-cors' pode não funcionar, então usamos fetch normal
-      // O Google Apps Script WebApp precisa estar configurado para aceitar requisições
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 55000); 
       
       const res = await fetch(SHEETS_WEBAPP_URL, {
         method: 'GET',

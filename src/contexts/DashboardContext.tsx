@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ActivityData, FilterState } from '@/types/activity';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
-import { filterExcludedServiceTypes, parseBRDate, extractDateFromInterval } from '@/utils/activityHelpers';
+import { filterExcludedServiceTypes, parseBRDate, extractDateFromInterval, getActivityStatus } from '@/utils/activityHelpers';
+
 
 interface DashboardContextType {
   allData: ActivityData[];
@@ -22,7 +23,9 @@ const initialFilters: FilterState = {
   activityTypes: [],
   searchText: '',
   startDate: '',
-  endDate: ''
+  endDate: '',
+  cities: [],
+  productivityFilter: 'all'
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -51,6 +54,28 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       if (filters.activityTypes.length > 0) {
         result = result.filter(item => filters.activityTypes.includes(item['Tipo de Atividade'] || ''));
       }
+
+       // Filtro por cidade
+      if (filters.cities.length > 0) {
+        result = result.filter(item => {
+          const cidade = item.Cidade || item.cidade || '';
+          return filters.cities.includes(cidade);
+        });
+      }
+
+      // Filtro por produtividade
+      if (filters.productivityFilter !== 'all') {
+        result = result.filter(item => {
+          const status = getActivityStatus(item);
+          if (filters.productivityFilter === 'productive') {
+            return status === 'Produtiva';
+          } else if (filters.productivityFilter === 'unproductive') {
+            return status === 'Improdutiva';
+          }
+          return true;
+        });
+      }
+
 
       // Filtro por texto
       if (filters.searchText) {
