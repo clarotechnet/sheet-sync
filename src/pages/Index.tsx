@@ -13,7 +13,7 @@ import { ChartSection } from '@/components/dashboard/ChartSection';
 import { MapSection } from '@/components/dashboard/MapSection';
 
 const TABS = [
-  { id: 'summary', label: 'Resumo do Dia' },
+  { id: 'summary', label: 'Resumo' },
   { id: 'kpis', label: 'KPIs' },
   { id: 'productivity', label: 'Produtividade' },
   { id: 'charts', label: 'Gráficos' },

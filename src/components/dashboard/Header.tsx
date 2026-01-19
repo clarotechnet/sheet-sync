@@ -20,14 +20,14 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center shadow-glow">
             {/* <img src="../../public/logo.png" alt="logo" className="w-6 h-6"/> */}
-            <Activity className="w-6 h-6 text-white" />
+            <Activity className="w-6 h-6 text-black" />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-foreground">
               Dashboard Technet 
             </h1>
             <p className="text-sm text-muted-foreground font-medium">
-              Agente Autorizado da CLaro
+              Agente Autorizado da Claro
             </p>
           </div>
         </div>
