@@ -221,10 +221,7 @@ export const Filters: React.FC = () => {
           <Eraser className="w-4 h-4" />
           Limpar Filtros
         </Button>
-        <Button variant="destructive" onClick={handleClearData} className="gap-2">
-          <Trash2 className="w-4 h-4" />
-          Limpar Dados
-        </Button>
+      
         <Button variant="success" onClick={exportCSV} className="gap-2">
           <FileDown className="w-4 h-4" />
           Exportar CSV

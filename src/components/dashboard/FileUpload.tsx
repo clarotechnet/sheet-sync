@@ -126,6 +126,66 @@ export const FileUpload: React.FC = () => {
 
   const hasData = allData.length > 0;
 
+  // Versão compacta quando já tem dados
+  if (hasData) {
+    return (
+      <div className="card p-4">
+        <div
+          className={`upload-area compact ${isDragging ? 'dragover' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => document.getElementById('fileInput')?.click()}
+          style={{ padding: '1rem 1.5rem', minHeight: 'auto' }}
+        >
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          <div className="flex items-center justify-between w-full gap-4">
+            <div className="flex items-center gap-3">
+              {isProcessing ? (
+                <div className="spinner w-5 h-5" />
+              ) : (
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
+              )}
+              <div>
+                <span className="text-sm font-medium text-foreground">
+                  {isProcessing ? 'Processando...' : `${allData.length} registros carregados`}
+                </span>
+              </div>
+            </div>
+
+            <button className="btn btn-primary text-sm py-2 px-4" disabled={isProcessing}>
+              <Upload className="w-4 h-4" />
+              Adicionar mais
+            </button>
+          </div>
+        </div>
+
+        {validationResult && (
+          <div className={`alert ${validationResult.isValid ? 'alert-success' : 'alert-error'} mt-3`}>
+            {validationResult.isValid ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <AlertCircle className="w-4 h-4" />
+            )}
+            <div>
+              <strong className="text-sm">{validationResult.isValid ? 'Sucesso!' : 'Erro'}</strong>
+              <br />
+              <small>{validationResult.message}</small>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Versão completa quando não tem dados
   return (
     <div className="card">
       <div
@@ -152,12 +212,10 @@ export const FileUpload: React.FC = () => {
         </div>
         
         <h3 className="upload-title">
-          {isProcessing ? 'Processando...' : hasData ? 'Adicionar mais dados' : 'Arraste seus arquivos aqui'}
+          {isProcessing ? 'Processando...' : 'Arraste seus arquivos aqui'}
         </h3>
         <p className="upload-subtitle">
-          {hasData 
-            ? `${allData.length} registros carregados. Clique para adicionar mais.`
-            : 'ou clique para selecionar (CSV, XLSX)'}
+          ou clique para selecionar (CSV, XLSX)
         </p>
         
         <button className="btn btn-primary" disabled={isProcessing}>
