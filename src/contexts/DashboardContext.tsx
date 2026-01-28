@@ -31,8 +31,8 @@ const initialFilters: FilterState = {
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useGoogleSheets();
-  // const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useAtividades();
+  // const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useGoogleSheets();
+  const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useAtividades();
   const [filters, setFiltersState] = useState<FilterState>(initialFilters);
   const [filteredData, setFilteredData] = useState<ActivityData[]>([]);
 

@@ -52,7 +52,7 @@ const DashboardContent: React.FC = () => {
 
         {/* Loading inicial */}
         {isLoading && !hasData && (
-          <LoadingSpinner message="Conectando ao Google Sheets..." />
+          <LoadingSpinner message="Conectando ao Banco de Dados..." />
         )}
 
         {/* Conteúdo do Dashboard */}

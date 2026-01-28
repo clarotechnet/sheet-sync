@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 interface LoadingSpinnerProps {
   message?: string;
 }
 
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message = 'Carregando dados...' }) => {
-  return (
-    <div className="loading-section">
-      <div className="spinner" />
-      <p className="text-muted-foreground">{message}</p>
-    </div>
-  );
-};
+export const LoadingSpinner = forwardRef<HTMLDivElement, LoadingSpinnerProps>(
+  ({ message = 'Carregando dados...' }, ref) => {
+    return (
+      <div ref={ref} className="loading-section">
+        <div className="spinner" />
+        <p className="text-muted-foreground">{message}</p>
+      </div>
+    );
+  }
+);
+
+LoadingSpinner.displayName = 'LoadingSpinner';
