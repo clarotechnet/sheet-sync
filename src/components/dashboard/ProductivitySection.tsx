@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Trophy, Frown, Users, ListChecks, PieChart } from 'lucide-react';
-import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, Sector } from 'recharts';
+import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
 import { useDashboard } from '@/contexts/DashboardContext';
-import { calculateTechnicianProductivity, getActivityStatus, getTechnicianDisplayName } from '@/utils/activityHelpers';
+import { calculateTechnicianProductivity, getActivityStatus } from '@/utils/activityHelpers';
 import { TARGET_ACTIVITIES } from '@/config/constants';
+import { DraggableBarChart } from './DraggableBarChart';
 
 interface ProductivityItemProps {
   name: string;
@@ -196,30 +197,23 @@ export const ProductivitySection: React.FC = () => {
 
   // Dados do gráfico de barras para Top 5 - estilo pódio
   const topChartData = useMemo(() => {
-    const top5 = topTechnicians;
-    let podiumOrder: number[] = [];
-
-    if (top5.length === 5) podiumOrder = [3, 1, 0, 2, 4];
-    else if (top5.length === 4) podiumOrder = [3, 1, 0, 2];
-    else if (top5.length === 3) podiumOrder = [1, 0, 2];
-    else if (top5.length === 2) podiumOrder = [1, 0];
-    else podiumOrder = [0];
-
-    return podiumOrder
-      .filter(index => top5[index])
-      .map((index) => ({
-        name: top5[index].name.split(' ')[0],
-        value: top5[index].productiveCount,
-        productivity: top5[index].productivity,
-        color: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#667eea'
-      }));
+   return topTechnicians.map((tech, index) => ({
+      name: tech.name.split(' ')[0],
+      fullName: tech.name,
+      value: tech.productiveCount,
+      total: tech.count,
+      productivity: tech.productivity,
+      color: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#667eea'
+    }));
   }, [topTechnicians]);
 
   // Dados do gráfico de barras para Bottom 5
   const bottomChartData = useMemo(() =>
     bottomTechnicians.map(tech => ({
       name: tech.name.split(' ')[0],
+      fullName: tech.name,
       value: tech.productiveCount,
+      total: tech.count,
       productivity: tech.productivity,
       color: tech.productivity >= 80 ? '#10b981' : '#ef4444'
     })),
@@ -395,87 +389,25 @@ export const ProductivitySection: React.FC = () => {
         {/* Top 5 com lista e gráfico */}
         <div className="productivity-card">
           <h4 className="mb-2 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-400" />
+            <Trophy className="w-5 h-5 text-warning" />
             Top 5 Técnicos Produtivos (Pódio)
           </h4>
-          <ul className="productivity-list">
-            {topTechnicians.length === 0 ? (
-              <li className="text-center text-muted-foreground py-8">
-                Nenhum dado para exibir
-              </li>
-            ) : (
-              topTechnicians.map((tech, index) => (
-                <ProductivityItem
-                  key={index}
-                  name={tech.name}
-                  count={`(${tech.productiveCount}/${tech.count})`}
-                  percentage={tech.productivity}
-                />
-              ))
-            )}
-          </ul>
-          {topChartData.length > 0 && (
-            <div className="h-[120px] mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topChartData} layout="horizontal">
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(223 16% 70%)', fontSize: 10 }} />
-                  <YAxis hide />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value, name, props) => [
-                      `${props.payload.productivity.toFixed(1)}%`,
-                      'Produtividade'
-                    ]}
-                  />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {topChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <p className="text-xs text-muted-foreground mb-3">
+            Arraste para reordenar
+          </p>
+          <DraggableBarChart data={topChartData} />
         </div>
 
-        {/* Bottom 5 com lista e gráfico */}
+        {/* Bottom 5 com barras arrastáveis */}
         <div className="productivity-card">
           <h4 className="mb-2 flex items-center gap-2">
             <Frown className="w-5 h-5 text-danger" />
             Bottom 5 Técnicos Produtivos
           </h4>
-          <ul className="productivity-list">
-            {bottomTechnicians.length === 0 ? (
-              <li className="text-center text-muted-foreground py-8">
-                Nenhum dado para exibir
-              </li>
-            ) : (
-              bottomTechnicians.map((tech, index) => (
-                <ProductivityItem
-                  key={index}
-                  name={tech.name}
-                  count={`(${tech.productiveCount}/${tech.count})`}
-                  percentage={tech.productivity}
-                />
-              ))
-            )}
-          </ul>
-          {bottomChartData.length > 0 && (
-            <div className="h-[120px] mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={bottomChartData} layout="horizontal">
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(223 16% 70%)', fontSize: 10 }} />
-                  <YAxis hide />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    {bottomChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+               <p className="text-xs text-muted-foreground mb-3">
+            Arraste para reordenar
+          </p>
+          <DraggableBarChart data={bottomChartData} />
         </div>
       </div>
     </div>
