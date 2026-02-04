@@ -101,7 +101,11 @@ export const SummarySection: React.FC = () => {
           {activityCounts.map(([type, data]) => (
             <li key={type} className="summary-item">
               <span className="truncate flex-1">{type}</span>
-              <span className="font-bold">{data.total}</span>
+               <span className="font-bold">
+                <span style={{ color: '#43e97b' }}>{data.productive}</span>
+                <span className="text-muted-foreground">/</span>
+                <span>{data.total}</span>
+              </span>
             </li>
           ))}
         </ul>
