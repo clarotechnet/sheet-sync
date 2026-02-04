@@ -36,16 +36,12 @@ export const SummarySection: React.FC = () => {
   }, [filteredData]);
 
   const productivityByType = useMemo(() => {
-    const counts = calculateActivityCounts(filteredData);
-    return Object.entries(counts)
-      .map(([type, data]) => ({
-        type,
-        productivity: data.total > 0 ? (data.productive / data.total) * 100 : 0,
-        total: data.total
-      }))
-      .sort((a, b) => b.productivity - a.productivity)
-      .slice(0, 10);
-  }, [filteredData]);
+       return activityCounts.map(([type, data]) => ({
+      type,
+      productivity: data.total > 0 ? (data.productive / data.total) * 100 : 0,
+      total: data.total
+    }));
+  }, [activityCounts]);
 
   const avgTimeByType = useMemo(() => {
     const timeData: Record<string, { totalMinutes: number; count: number }> = {};
@@ -102,9 +98,9 @@ export const SummarySection: React.FC = () => {
             <li key={type} className="summary-item">
               <span className="truncate flex-1">{type}</span>
                <span className="font-bold">
-                <span style={{ color: '#43e97b' }}>{data.productive}</span>
+                <span style={{ color: '#32CD32' }}>{data.productive}</span>
                 <span className="text-muted-foreground">/</span>
-                <span>{data.total}</span>
+                <span style={{color: '#FF0000'}}>{data.total}</span>
               </span>
             </li>
           ))}
@@ -122,7 +118,7 @@ export const SummarySection: React.FC = () => {
               <span className="truncate flex-1">{item.type}</span>
               <span 
                 className="font-bold"
-                style={{ color: item.productivity >= 80 ? '#43e97b' : '#f5576c' }}
+                style={{ color: item.productivity >= 80 ? '#32CD32' : '#FF0000' }}
               >
                 {item.productivity.toFixed(1)}%
               </span>
