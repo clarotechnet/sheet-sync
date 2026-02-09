@@ -80,7 +80,8 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
   /**
    * Processa 1 arquivo com progresso por linhas
    * - Filtra Status da Atividade = "suspenso"
-   * - Mantém SOMENTE a 2ª coluna duplicada "Tipo de Atividade" (ignora a 1ª)
+   * - Mantém SOMENTE a coluna correta (entre duplicadas) "Tipo de Atividade"
+   *   usando a lógica de diversidade/Normal
    * - Permite cancelamento
    */
   const processFileWithProgress = useCallback(
@@ -103,10 +104,10 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
         throw new Error('O arquivo deve conter pelo menos uma linha de cabeçalho e uma linha de dados.');
       }
 
-      // ====== AQUI: lógica para usar SOMENTE a 2ª coluna "Tipo de Atividade" ======
       const rawHeaders = (jsonData[0] as string[]).map(h => String(h || '').trim());
 
-      // encontra todas ocorrências de "Tipo de Atividade"
+      // ====== AQUI: SUA LÓGICA (exata) para escolher a coluna correta "Tipo de Atividade" ======
+      // Detectar colunas duplicadas "Tipo de Atividade"
       const tipoAtividadeIndices: number[] = [];
       rawHeaders.forEach((header, index) => {
         if (String(header || '').trim().toLowerCase() === 'tipo de atividade') {
@@ -114,23 +115,53 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
         }
       });
 
-      // preferida = segunda ocorrência; se não existir, usa a primeira (se existir)
-      const tipoAtividadePreferredIndex =
-        tipoAtividadeIndices.length >= 2 ? tipoAtividadeIndices[1] : tipoAtividadeIndices[0];
+      // Se há mais de uma coluna "Tipo de Atividade", detecta qual tem conteúdo real
+      // A coluna errada está toda preenchida com "Normal", a correta tem os serviços reais
+      let tipoAtividadePreferredIndex = tipoAtividadeIndices[0];
 
-      // headers finais: marca duplicatas (não preferidas) para ignorar
-      const headers = rawHeaders.map((header, index) => {
-        const normalized = String(header || '').trim();
-        const isTipoAtividade = normalized.toLowerCase() === 'tipo de atividade';
+      if (tipoAtividadeIndices.length > 1) {
+        const dataRows = jsonData.slice(1);
+        const sampleSize = Math.min(dataRows.length, 50);
 
-        if (
-          isTipoAtividade &&
-          tipoAtividadeIndices.length > 1 &&
-          index !== tipoAtividadePreferredIndex
-        ) {
-          return `__IGNORE_${index}__`;
+        let bestIndex = tipoAtividadeIndices[0];
+        let bestDiversity = 0;
+
+        for (const colIndex of tipoAtividadeIndices) {
+          const values = new Set<string>();
+          let normalCount = 0;
+
+          for (let r = 0; r < sampleSize; r++) {
+            const val = String((dataRows[r] as unknown[])[colIndex] || '').trim().toLowerCase();
+            if (val) {
+              values.add(val);
+              if (val === 'normal') normalCount++;
+            }
+          }
+
+          // Calcula diversidade: mais valores únicos e menos "Normal" = melhor coluna
+          const diversity = values.size - (normalCount / sampleSize) * 10;
+          console.log(
+            `Coluna "Tipo de Atividade" índice ${colIndex}: ${values.size} valores únicos, ${normalCount}/${sampleSize} são "Normal", score=${diversity.toFixed(
+              1
+            )}`
+          );
+
+          if (diversity > bestDiversity) {
+            bestDiversity = diversity;
+            bestIndex = colIndex;
+          }
         }
 
+        tipoAtividadePreferredIndex = bestIndex;
+        console.log(`Coluna preferida para "Tipo de Atividade": índice ${tipoAtividadePreferredIndex}`);
+      }
+
+      // Criar headers únicos, marcando duplicatas para ignorar
+      const headers = rawHeaders.map((header, index) => {
+        const normalized = String(header || '').trim();
+        if (normalized.toLowerCase() === 'tipo de atividade' && index !== tipoAtividadePreferredIndex) {
+          return `__IGNORE_${index}__`;
+        }
         return normalized;
       });
 
@@ -145,6 +176,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
       const total = dataRows.length;
 
       const statusHeader = rawHeaders.find(h => h.toLowerCase().trim() === 'status da atividade');
+
       const startPct = 22;
       const endPct = 95;
 
