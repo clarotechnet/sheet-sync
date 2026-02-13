@@ -16,6 +16,8 @@ export interface Atividade {
   tempo_de_deslocamento?: string; // Formato TIME (HH:MM:SS)
   numero_os1?: string;
   created_at?: string;
+  contador_log?: string;
+  tecnico_referencia?: string;
 }
 
 
@@ -85,7 +87,7 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     'Tipo de Atividade': atividade.tipo_atividade || '',
     'Cód de Baixa 1': atividade.cod_baixa_1 || '',
     'Intervalo de Tempo': atividade.intervalo_tempo || '',
-    Duração: atividade.duracao_minutos?.toString() || '', // INT4 -> string
+    Duração: atividade.duracao_minutos?.toString() || '',
     Latitude: atividade.latitude?.toString() || '',
     Longitude: atividade.longitude?.toString() || '',
     Cidade: atividade.cidade || '',
@@ -93,6 +95,8 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     Bairro: atividade.bairro || '',
     'Número da O.S 1': atividade.numero_os1 || '',
     'Tempo de Deslocamento': timeFormatToDisplay(atividade.tempo_de_deslocamento),
+    'Contador Log': atividade.contador_log || '',
+    'Técnico Referência': atividade.tecnico_referencia || '',
   };
 }
 
@@ -120,17 +124,19 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     numero_os: data['Número da WO'] || undefined,
     numero_os1: data['Número da O.S 1'] || undefined,
     contrato: data.Contrato || undefined,
-    data_atividade: brToIsoDate(data.Data), // Converte para ISO antes de enviar
+    data_atividade: brToIsoDate(data.Data),
     recurso: data.Recurso || undefined,
     status_atividade: data['Status da Atividade'] || undefined,
     tipo_atividade: data['Tipo de Atividade'] || undefined,
     cod_baixa_1: data['Cód de Baixa 1'] || undefined,
     intervalo_tempo: data['Intervalo de Tempo'] || undefined,
-    duracao_minutos: duracaoMinutos, // INT4
+    duracao_minutos: duracaoMinutos,
     latitude: latValue ? parseFloat(latValue) || undefined : undefined,
     longitude: lngValue ? parseFloat(lngValue) || undefined : undefined,
     cidade: data.Cidade || data.cidade || undefined,
     bairro: data.Bairro || undefined,
-    tempo_de_deslocamento: minutesToTimeFormat(data['Tempo de Deslocamento']), // TIME
+    tempo_de_deslocamento: minutesToTimeFormat(data['Tempo de Deslocamento']),
+    contador_log: data['Contador Log'] || undefined,
+    tecnico_referencia: data['Técnico Referência'] || undefined,
   };
 }

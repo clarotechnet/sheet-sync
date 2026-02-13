@@ -562,6 +562,15 @@
     font-size: 0.8rem;
     font-weight: 600;
   }
+  .edit-button {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 0.10rem 0.50rem;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
 
   .table-wrapper {
     max-height: 600px;

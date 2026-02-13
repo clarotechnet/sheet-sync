@@ -63,9 +63,9 @@ export const DataTable: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Produtiva':
-        return '#43e97b';
+        return '#228B22';
       case 'Improdutiva':
-        return '#f5576c';
+        return '#FF0000';
       default:
         return '#f5a623';
     }
@@ -343,7 +343,7 @@ export const DataTable: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => startEdit(item, rowKey)}
-                              className="text-xs text-primary"
+                              className="edit-button"
                             >
                               Editar
                             </button>
