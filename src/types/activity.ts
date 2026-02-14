@@ -30,7 +30,7 @@ export interface FilterState {
   startDate: string;
   endDate: string;
   cities: string[];
-  productivityFilter: 'all' | 'productive' | 'unproductive' | 'pending';
+  productivityFilter: 'all' | 'productive' | 'unproductive' | 'pending' | 'cancelled';
 }
 
-export type ActivityStatus = 'Produtiva' | 'Improdutiva' | 'Pendente';
+export type ActivityStatus = 'Produtiva' | 'Improdutiva' | 'Pendente' | 'Cancelado';

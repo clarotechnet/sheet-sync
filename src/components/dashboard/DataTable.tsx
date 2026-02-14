@@ -10,7 +10,7 @@ import { getActivityStatus } from '@/utils/activityHelpers';
 type SortOrder = 'none' | 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 100;
-const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva'] as const;
+const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva','Cancelada'] as const;
 
 export const DataTable: React.FC = () => {
   const { filteredData, refreshData } = useDashboard();
@@ -66,6 +66,8 @@ export const DataTable: React.FC = () => {
         return '#228B22';
       case 'Improdutiva':
         return '#FF0000';
+      case 'Cancelado':
+        return '#8B4513';  
       default:
         return '#f5a623';
     }

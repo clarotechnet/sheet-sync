@@ -82,6 +82,8 @@ export const LogsTable: React.FC = () => {
         return '#228B22';
       case 'Improdutiva':
         return '#FF0000';
+      case 'Cancelado':
+        return '#8B4513';
       default:
         return '#f5a623';
     }

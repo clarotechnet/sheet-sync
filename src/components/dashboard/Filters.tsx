@@ -94,7 +94,8 @@ export const Filters: React.FC = () => {
     { value: 'all', label: 'Todas' },
     { value: 'productive', label: 'Produtivas' },
     { value: 'unproductive', label: 'Improdutivas' },
-    { value: 'pending', label: 'Pendentes' }
+    { value: 'pending', label: 'Pendentes' },
+    { value: 'cancelled', label: 'Cancelados' }
   ];
 
   const exportCSV = () => {
@@ -181,7 +182,7 @@ export const Filters: React.FC = () => {
               value={filters.productivityFilter}
               onChange={(e) =>
                 setFilters({
-                  productivityFilter: e.target.value as 'all' | 'productive' | 'unproductive'| 'pending'
+                  productivityFilter: e.target.value as 'all' | 'productive' | 'unproductive'| 'pending' | 'cancelled'
                 })
               }
             >

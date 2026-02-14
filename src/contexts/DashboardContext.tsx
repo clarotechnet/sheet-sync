@@ -74,6 +74,9 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
             return status === 'Improdutiva';
           }else if (filters.productivityFilter === 'pending') {
             return status === 'Pendente';}
+          else if (filters.productivityFilter === 'cancelled') {
+            return status === 'Cancelado';
+          }
           return true;
         });
       }
