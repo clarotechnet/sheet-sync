@@ -1,3 +1,4 @@
+// Toda a logica do codigo de produtividade e improdutivas, pendetes e cancelado
 import { ActivityData, ActivityStatus, TechnicianProductivity, ActivityCount } from '@/types/activity';
 import { EXCLUDED_SERVICE_TYPES } from '@/config/constants';
 

@@ -245,6 +245,7 @@ export const DataTable: React.FC = () => {
               <th>Contrato</th>
               <th>Cód de Baixa 1</th>
               <th>Status</th>
+              <th>Data</th>
               <th>Intervalo de Tempo</th>
             </tr>
           </thead>
@@ -353,7 +354,7 @@ export const DataTable: React.FC = () => {
                         </div>
                       )}
                     </td>
-
+                    <td>{item.Data || 'N/A'}</td>
                     <td>{item['Intervalo de Tempo'] || 'N/A'}</td>
                   </tr>
                 );
