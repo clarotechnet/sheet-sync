@@ -5,10 +5,10 @@ import { EXCLUDED_SERVICE_TYPES } from '@/config/constants';
 export const getActivityStatus = (item: ActivityData): ActivityStatus => {
    // Verifica se o status da atividade é "Cancelado"
   const statusAtividade = (item['Status da Atividade'] || '').trim().toLowerCase();
-  if (statusAtividade === 'cancelado' || statusAtividade === 'cancelada') {
+  if (statusAtividade === 'cancelado' || statusAtividade === 'cancelada'||statusAtividade ==='não concluído'|| statusAtividade === 'nao concluido') {
     return 'Cancelado';
   }
-
+  
   const baixa = item['Cód de Baixa 1'] || '';
   const match = baixa.match(/^(\d+)/);
   
