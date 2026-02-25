@@ -25,7 +25,7 @@ const initialFilters: FilterState = {
   startDate: '',
   endDate: '',
   cities: [],
-  productivityFilter: 'all'
+  productivityFilters: []
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -65,19 +65,18 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
 
       // Filtro por produtividade
-      if (filters.productivityFilter !== 'all') {
+       // Filtro por produtividade (multi-select)
+      if (filters.productivityFilters.length > 0) {
+        const statusMap: Record<string, string> = {
+          productive: 'Produtiva',
+          unproductive: 'Improdutiva',
+          pending: 'Pendente',
+          cancelled: 'Cancelado'
+        };
+        const allowedStatuses = filters.productivityFilters.map(f => statusMap[f]).filter(Boolean);
         result = result.filter(item => {
           const status = getActivityStatus(item);
-          if (filters.productivityFilter === 'productive') {
-            return status === 'Produtiva';
-          } else if (filters.productivityFilter === 'unproductive') {
-            return status === 'Improdutiva';
-          }else if (filters.productivityFilter === 'pending') {
-            return status === 'Pendente';}
-          else if (filters.productivityFilter === 'cancelled') {
-            return status === 'Cancelado';
-          }
-          return true;
+          return allowedStatuses.includes(status);
         });
       }
 

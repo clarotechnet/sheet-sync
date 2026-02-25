@@ -90,13 +90,19 @@ export const Filters: React.FC = () => {
     return [...new Set(baseData.map(item => (item.Cidade || item.cidade || '')).filter(Boolean))].sort();
   }, [baseData]);
 
-  const productivityOptions = [
-    { value: 'all', label: 'Todas' },
-    { value: 'productive', label: 'Produtivas' },
-    { value: 'unproductive', label: 'Improdutivas' },
-    { value: 'pending', label: 'Pendentes' },
-    { value: 'cancelled', label: 'Cancelados' }
-  ];
+  const productivityOptions = ['Produtivas', 'Improdutivas', 'Pendentes', 'Cancelados'];
+  const productivityValueMap: Record<string, string> = {
+    'Produtivas': 'productive',
+    'Improdutivas': 'unproductive',
+    'Pendentes': 'pending',
+    'Cancelados': 'cancelled'
+  };
+  const productivityLabelMap: Record<string, string> = {
+    productive: 'Produtivas',
+    unproductive: 'Improdutivas',
+    pending: 'Pendentes',
+    cancelled: 'Cancelados'
+  };
 
   const exportCSV = () => {
     if (filteredData.length === 0) {
@@ -173,25 +179,12 @@ export const Filters: React.FC = () => {
           onChange={(selected) => setFilters({ cities: selected })}
         />
 
-        <div className="form-group">
-          <Label className="form-label">Produtividade</Label>
-
-          <div className="select-wrap">
-            <select
-              className="select-like-multiselect w-full"
-              value={filters.productivityFilter}
-              onChange={(e) =>
-                setFilters({
-                  productivityFilter: e.target.value as 'all' | 'productive' | 'unproductive'| 'pending' | 'cancelled'
-                })
-              }
-            >
-              {productivityOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <MultiSelect
+          label="Produtividade"
+          options={productivityOptions}
+          selected={filters.productivityFilters.map(v => productivityLabelMap[v] || v)}
+          onChange={(selected) => setFilters({ productivityFilters: selected.map(s => productivityValueMap[s] || s) })}
+        />
 
 
         <div className="form-group">
