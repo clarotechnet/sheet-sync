@@ -537,7 +537,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
         </h3>
 
         <p className="upload-subtitle">
-          {isUploading ? 'Aguarde o processamento...' : 'ou clique para selecionar (CSV, XLSX) - múltiplos arquivos'}
+          {isUploading ? 'Aguarde o processamento...' : 'ou clique para selecionar (XLSX) - múltiplos arquivos'}
         </p>
 
         {!isUploading && !hasPendingFiles && (
