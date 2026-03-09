@@ -413,6 +413,15 @@ export function useComissionamento() {
 
     await fetchData();
   }, [fetchData]);
+const updateRecord = useCallback(async (id: string, updates: Partial<ComissionamentoData>) => {
+    const { error: updateError } = await externalSupabase
+      .from('comissionamento')
+      .update(updates)
+      .eq('id', id);
+    if (updateError) throw updateError;
+    await fetchData();
+  }, [fetchData]);
+
 
   return {
     data: filteredData,
@@ -425,6 +434,7 @@ export function useComissionamento() {
     fetchData,
     importExcel,
     submitManualEntry,
+    updateRecord,
     uniqueCidades,
     uniqueNomes,
     uniqueFrente,

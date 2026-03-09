@@ -76,7 +76,14 @@ const Comissionamento: React.FC = () => {
                   selectedFrente={hook.filters.frente}
                 />
               )}
-              {activeTab === 'table' && <ComissionamentoTable data={hook.data} />}
+               {activeTab === 'table' && (
+                <ComissionamentoTable
+                  data={hook.data}
+                  onUpdate={hook.updateRecord}
+                  uniqueNomes={hook.uniqueNomes}
+                  uniqueCidades={hook.uniqueCidades}
+                />
+              )}
             </div>
           </>
         )}
