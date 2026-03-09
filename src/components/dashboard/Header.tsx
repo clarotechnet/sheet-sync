@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { Calendar, RefreshCw, LogOut, Shield } from 'lucide-react';
+import { Activity, Calendar, RefreshCw, LogOut, Shield, ArrowLeft } from 'lucide-react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,9 @@ export const Header = forwardRef<HTMLElement>((_, ref) => {
     >
       <div className="max-w-[1400px] mx-auto px-8 py-6 flex justify-between items-center">
         <div className="flex items-center gap-4">
+           <Button variant="ghost" size="icon" onClick={() => navigate('/selecao')} className="mr-2">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
           <div className="w-20 h-20 rounded-xl flex items-center justify-center shadow-glow overflow-hidden">
             <img
               src={`${import.meta.env.BASE_URL}LogoNovo.png`}

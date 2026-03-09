@@ -27,7 +27,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!authLoading && user && isApproved) {
-      navigate('/', { replace: true });
+      navigate('/selecao', { replace: true });
     }
   }, [user, isApproved, authLoading, navigate]);
 
@@ -68,7 +68,7 @@ export default function Login() {
         description: result.message,
       });
        // Força navegação imediata
-      navigate('/', { replace: true });
+      navigate('/selecao', { replace: true });
 
     } else {
       toast({
