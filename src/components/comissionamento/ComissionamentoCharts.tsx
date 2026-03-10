@@ -38,7 +38,7 @@ export const ComissionamentoCharts: React.FC<Props> = ({ chartData, ranking }) =
   }));
 
   const top5 = ranking.slice(0, 5);
-  const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32', 'hsl(14, 41%, 25%)', 'hsl(0, 50%, 47%)'];
+  const medalColors = ['#FFD700', '#a09494', '#CD7F32', 'hsl(14, 41%, 25%)', 'hsl(0, 50%, 47%)'];
 
   return (
     <div className="space-y-8">
@@ -121,11 +121,11 @@ export const ComissionamentoCharts: React.FC<Props> = ({ chartData, ranking }) =
                 <div className="text-sm font-bold text-foreground mb-1 truncate" title={t.nome}>
                   {t.nome}
                 </div>
-                <div className="text-xs text-muted-foreground mb-2">
+                <div className="text-xs text-muted-foreground mb-3 font-bold">
                   {t.totalContratos} contratos
                 </div>
                 {t.totalValor > 0 && (
-                  <div className="text-xs font-semibold" style={{ color: medalColors[i] }}>
+                  <div className="text-xs font-bold" style={{ color: medalColors[i] }}>
                     R$ {t.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                 )}

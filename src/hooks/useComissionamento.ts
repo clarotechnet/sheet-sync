@@ -318,15 +318,19 @@ export function useComissionamento() {
     return Object.values(map).sort((a, b) => (b.pendente + b.confirmada + b.cancelada) - (a.pendente + a.confirmada + a.cancelada));
   }, [filteredData]);
 
-  // Ranking
+  
+  // Ranking — conta contratos únicos por (contrato+data), mesmo contrato em dias diferentes conta separado
   const ranking = useMemo(() => {
-    const map: Record<string, { nome: string; totalContratos: number; totalValor: number }> = {};
+   const map: Record<string, { nome: string; contratoKeys: Set<string>; totalValor: number }> = {};
     filteredData.forEach(r => {
-      if (!map[r.nome]) map[r.nome] = { nome: r.nome, totalContratos: 0, totalValor: 0 };
-      map[r.nome].totalContratos++;
+      if (!map[r.nome]) map[r.nome] = { nome: r.nome, contratoKeys: new Set(), totalValor: 0 };
+      const key = `${(r.contrato || '').trim().toUpperCase()}||${(r.data || '').trim()}`;
+      map[r.nome].contratoKeys.add(key);
       map[r.nome].totalValor += r.valores || 0;
     });
-    return Object.values(map).sort((a, b) => b.totalContratos - a.totalContratos);
+       return Object.values(map)
+      .map(m => ({ nome: m.nome, totalContratos: m.contratoKeys.size, totalValor: m.totalValor }))
+      .sort((a, b) => b.totalContratos - a.totalContratos);
   }, [filteredData]);
 
   // Frentes KPI data
