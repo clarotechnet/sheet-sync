@@ -139,7 +139,7 @@ export const ComissionamentoCharts: React.FC<Props> = ({ chartData, ranking }) =
                 </div>
                 {t.totalValor > 0 && (
                   <div className="text-xs font-bold" style={{ color: medalColors[i] }}>
-                    R$ {t.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="text-xs font-black text-foreground">R$ {t.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
               </div>
