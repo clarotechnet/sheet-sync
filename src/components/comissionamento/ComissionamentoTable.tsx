@@ -7,6 +7,7 @@ import { ComissionamentoEditDialog } from './ComissionamentoEditDialog';
 interface Props {
   data: ComissionamentoData[];
   onUpdate: (id: string, updates: Partial<ComissionamentoData>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   uniqueNomes: string[];
   uniqueCidades: string[];
 }
@@ -30,7 +31,7 @@ const statusColor = (s: string | null) => {
   }
 };
 
-export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, uniqueNomes, uniqueCidades }) => {
+export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, onDelete, uniqueNomes, uniqueCidades }) => {
   const [page, setPage] = useState(0);
   const [sortField, setSortField] = useState<string>('nome');
   const [sortAsc, setSortAsc] = useState(true);
@@ -157,6 +158,7 @@ export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, uniqueNo
         open={!!editRecord}
         onClose={() => setEditRecord(null)}
         onSave={onUpdate}
+        onDelete={onDelete}
         record={editRecord}
         uniqueNomes={uniqueNomes}
         uniqueCidades={uniqueCidades}

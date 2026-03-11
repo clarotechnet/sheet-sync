@@ -80,6 +80,7 @@ const Comissionamento: React.FC = () => {
                 <ComissionamentoTable
                   data={hook.data}
                   onUpdate={hook.updateRecord}
+                  onDelete={hook.deleteRecord}
                   uniqueNomes={hook.uniqueNomes}
                   uniqueCidades={hook.uniqueCidades}
                 />

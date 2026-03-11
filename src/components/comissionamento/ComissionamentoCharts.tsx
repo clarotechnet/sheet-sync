@@ -10,11 +10,16 @@ interface Props {
 
 function shortName(full: string): string {
   const parts = (full || '').trim().split(/\s+/);
-  if (parts.length <= 2) return full;
-  return `${parts[0]} ${parts[parts.length - 1]}`;
+
+  if (parts.length === 0) return '';
+
+  const firstName = parts[0];
+  const lastPart = parts.length > 1 ? parts[parts.length - 1] : '';
+  const lastInitial = lastPart ? lastPart.slice(0, 1) + '.' : '';
+
+  return `${firstName} ${lastInitial}`.trim();
 }
 
-// Custom tick for two-line X axis (name + city)
 const CustomXAxisTick = ({ x, y, payload }: any) => {
   const parts = (payload.value || '').split('||');
   const nome = parts[0] || '';
@@ -31,10 +36,18 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
   );
 };
 
+//função para cortar o nome da cidade no gráfico
+function nameSlace(full: string): string {
+    const name = (full || '').trim();
+    if (name.length <= 9) return name;
+    return name.slice(0, 10) + '...';
+}
+
+
 export const ComissionamentoCharts: React.FC<Props> = ({ chartData, ranking }) => {
   const barData = chartData.slice(0, 15).map(d => ({
     ...d,
-    nameCity: `${shortName(d.nome)}||${d.cidade}`
+    nameCity: `${shortName(d.nome)}||${nameSlace(d.cidade)}`
   }));
 
   const top5 = ranking.slice(0, 5);
@@ -121,8 +134,8 @@ export const ComissionamentoCharts: React.FC<Props> = ({ chartData, ranking }) =
                 <div className="text-sm font-bold text-foreground mb-1 truncate" title={t.nome}>
                   {t.nome}
                 </div>
-                <div className="text-xs text-muted-foreground mb-3 font-bold">
-                  {t.totalContratos} contratos
+                 <div className="text-xs text-muted-foreground mb-2">
+                  <span className="text-xs font-black text-foreground">{t.totalContratos}  contratos</span>{' '}
                 </div>
                 {t.totalValor > 0 && (
                   <div className="text-xs font-bold" style={{ color: medalColors[i] }}>

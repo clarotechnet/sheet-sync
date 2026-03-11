@@ -337,8 +337,12 @@ export function useComissionamento() {
   const frentesData = useMemo((): FrenteKPIData[] => {
     const frenteGroups = new Map<string, { tecnicos: Set<string>; tecComVenda: Set<string>; qtdConfirmada: number; totalGeral: number }>();
 
-    // Initialize all frentes from tecnicos_frentes
-    tecnicosFrente.forEach(tf => {
+       // Initialize frentes from tecnicos_frentes, filtering by city if selected
+    const filteredTecnicos = filters.cidade
+      ? tecnicosFrente.filter(tf => (tf.cidade || '').toLowerCase().includes(filters.cidade.toLowerCase()))
+      : tecnicosFrente;
+
+    filteredTecnicos.forEach(tf => {
       if (!frenteGroups.has(tf.frente)) {
         frenteGroups.set(tf.frente, { tecnicos: new Set(), tecComVenda: new Set(), qtdConfirmada: 0, totalGeral: 0 });
       }
@@ -379,7 +383,7 @@ export function useComissionamento() {
         tecNaoVenderam: tecNaoVenderam.map(n => nomeMap.get(n) || n)
       };
     }).sort((a, b) => b.qtdConsultivo - a.qtdConsultivo);
-  }, [filteredData, tecnicosFrente]);
+}, [filteredData, tecnicosFrente, filters.cidade]);
 
    const submitManualEntry = useCallback(async (formData: Record<string, any>) => {
     // Enrich with frente
@@ -425,6 +429,14 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     if (updateError) throw updateError;
     await fetchData();
   }, [fetchData]);
+   const deleteRecord = useCallback(async (id: string) => {
+    const { error: deleteError } = await externalSupabase
+      .from('comissionamento')
+      .delete()
+      .eq('id', id);
+    if (deleteError) throw deleteError;
+    await fetchData();
+  }, [fetchData]);
 
 
   return {
@@ -439,6 +451,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     importExcel,
     submitManualEntry,
     updateRecord,
+    deleteRecord,
     uniqueCidades,
     uniqueNomes,
     uniqueFrente,

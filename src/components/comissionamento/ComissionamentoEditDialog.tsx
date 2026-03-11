@@ -3,13 +3,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Trash2 } from 'lucide-react';
 import { ComissionamentoData } from '@/types/comissionamento';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSave: (id: string, data: Partial<ComissionamentoData>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   record: ComissionamentoData | null;
   uniqueNomes: string[];
   uniqueCidades: string[];
@@ -23,11 +24,14 @@ const formatDateForInput = (val: string | null) => {
   return match ? val.substring(0, 10) : '';
 };
 
-export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSave, record, uniqueNomes, uniqueCidades }) => {
+export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSave, onDelete, record, uniqueNomes, uniqueCidades }) => {
   const [form, setForm] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (record) {
@@ -52,6 +56,7 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
       });
       setError('');
       setSuccess(false);
+      setConfirmDelete(false);
     }
   }, [record]);
 
@@ -82,7 +87,9 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
         status: (form.status as any) || 'PENDENTE',
       };
       await onSave(record.id, updates);
+      setSuccessMsg('Registro atualizado com sucesso!');
       setSuccess(true);
+      setTimeout(() => { setSuccess(false); onClose(); }, 1200);
       setTimeout(() => {
         setSuccess(false);
         onClose();
@@ -94,10 +101,31 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
     }
   };
 
+    const handleDelete = async () => {
+    if (!record?.id) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    setError('');
+    try {
+      await onDelete(record.id);
+      setSuccessMsg('Registro excluído com sucesso!');
+      setSuccess(true);
+      setTimeout(() => { setSuccess(false); onClose(); }, 1200);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao excluir');
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   const selectClass = "w-full bg-card border border-border rounded-lg px-3 py-2 text-foreground text-sm";
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setConfirmDelete(false); onClose(); } }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Registro</DialogTitle>
@@ -106,7 +134,7 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
         {success ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <CheckCircle className="w-12 h-12 text-primary" />
-            <p className="text-lg font-semibold text-foreground">Registro atualizado com sucesso!</p>
+            <p className="text-lg font-semibold text-foreground">{successMsg}</p>
           </div>
         ) : (
           <>
@@ -210,12 +238,24 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <DialogFooter className="flex gap-2 sm:gap-2">
-              <Button variant="ghost" onClick={onClose} disabled={submitting}>Fechar</Button>
-              <Button onClick={handleSave} disabled={submitting}>
-                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Salvar Alterações
+             <DialogFooter className="flex gap-2 sm:gap-2 sm:justify-between w-full">
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={submitting || deleting}
+                className="mr-auto"
+              >
+                {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Trash2 className="w-4 h-4 mr-1" />
+                {confirmDelete ? 'Confirmar Exclusão' : 'Excluir'}
               </Button>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => { setConfirmDelete(false); onClose(); }} disabled={submitting || deleting}>Fechar</Button>
+                <Button onClick={handleSave} disabled={submitting || deleting}>
+                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar Alterações
+                </Button>
+              </div>
             </DialogFooter>
           </>
         )}
