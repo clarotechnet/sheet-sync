@@ -26,7 +26,7 @@ const statusColor = (s: string | null) => {
   switch (s) {
     case 'CONFIRMADA': return '#22c55e';
     case 'PENDENTE': return '#f59e0b';
-    case 'CANCELADA': return '#3b82f6';
+    case 'CANCELADA': return '#f63b3b';
     default: return 'hsl(223 16% 70%)';
   }
 };
