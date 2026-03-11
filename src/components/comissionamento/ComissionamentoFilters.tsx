@@ -22,7 +22,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, totalFiltered,
   onImport, onManualSubmit, isLoading
 }) => {
-  const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente;
+  const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente || filters.contrato;
     const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -145,6 +145,20 @@ export const ComissionamentoFilters: React.FC<Props> = ({
             <datalist id="nomes-list">
               {uniqueNomes.map(n => <option key={n} value={n} />)}
             </datalist>
+          </div>
+        </div>
+         {/* Contrato */}
+        <div className="form-group">
+          <Label className="form-label">Contrato</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              className="form-control bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-foreground w-full"
+              placeholder="Buscar por contrato..."
+              value={filters.contrato}
+              onChange={e => setFilters({ contrato: e.target.value })}
+            />
           </div>
         </div>
       </div>

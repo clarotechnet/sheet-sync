@@ -77,7 +77,8 @@ export function useComissionamento() {
     dataFim: '',
     status: '',
     nome: '',
-    frente: ''
+    frente: '',
+    contrato: ''
   });
 
   const fetchData = useCallback(async () => {
@@ -276,6 +277,11 @@ export function useComissionamento() {
       result = result.filter(r => (r.frente || '') === filters.frente);
     }
 
+    if (filters.contrato) {
+      result = result.filter(r => (r.contrato || '').toLowerCase().includes(filters.contrato.toLowerCase()));
+    }
+
+
     return result;
   }, [data, filters]);
 
@@ -446,7 +452,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     error,
     filters,
     setFilters: (f: Partial<ComissionamentoFilters>) => setFilters(prev => ({ ...prev, ...f })),
-    clearFilters: () => setFilters({ cidade: '', dataInicio: '', dataFim: '', status: '', nome: '', frente: '' }),
+    clearFilters: () => setFilters({ cidade: '', dataInicio: '', dataFim: '', status: '', nome: '', frente: '', contrato: '' }),
     fetchData,
     importExcel,
     submitManualEntry,

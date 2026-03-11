@@ -29,6 +29,7 @@ export interface ComissionamentoFilters {
   status: string;
   nome: string;
   frente: string;
+  contrato: string;
 }
 
 export interface ComissionamentoKPIData {
