@@ -284,10 +284,10 @@ export function useComissionamento() {
 
     return result;
   }, [data, filters]);
-
+  //ondepegar od dados
   const uniqueCidades = useMemo(() =>
-    [...new Set(tecnicosFrente.map(t => t.cidade).filter(Boolean))].sort() as string[],
-    [tecnicosFrente]
+    [...new Set(data.map(r => r.alocacao).filter(Boolean))].sort() as string[],
+    [data]
   );
 
   const uniqueNomes = useMemo(() =>
