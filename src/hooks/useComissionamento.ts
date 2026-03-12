@@ -286,8 +286,8 @@ export function useComissionamento() {
   }, [data, filters]);
 
   const uniqueCidades = useMemo(() =>
-    [...new Set(data.map(r => r.alocacao).filter(Boolean))].sort() as string[],
-    [data]
+    [...new Set(tecnicosFrente.map(t => t.cidade).filter(Boolean))].sort() as string[],
+    [tecnicosFrente]
   );
 
   const uniqueNomes = useMemo(() =>
