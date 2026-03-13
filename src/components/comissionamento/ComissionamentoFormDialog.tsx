@@ -129,15 +129,15 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               </div>
 
               {/* MÊS INSTALADO */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Mês Instalado</Label>
                 <Input placeholder="Ex: Janeiro" value={form.mes_instalado} onChange={e => set('mes_instalado', e.target.value)} />
-              </div>
+              </div> */}
 
              {/* TIPO VENDA - free text */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium">Tipo Venda *</Label>
-                <Input placeholder="Ex: CONSULTIVO" value={form.tipo_venda} onChange={e => set('tipo_venda', e.target.value)} />
+                <Input placeholder="Ex: WIFI MESH" value={form.tipo_venda} onChange={e => set('tipo_venda', e.target.value)} />
               </div>
 
               {/* PROPOSTA - free text */}
@@ -183,10 +183,10 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               </div>
 
               {/* JANELA */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Janela</Label>
                 <Input placeholder="Janela (opcional)" value={form.janela} onChange={e => set('janela', e.target.value)} />
-              </div>
+              </div> */}
 
               {/* PAGAMENTO */}
               <div className="space-y-1">
@@ -195,10 +195,10 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               </div>
 
               {/* MÊS/ANO PROPOSTA */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Mês/Ano Proposta</Label>
                 <Input placeholder="Ex: 01/2025" value={form.mes_ano_proposta} onChange={e => set('mes_ano_proposta', e.target.value)} />
-              </div>
+              </div> */}
 
               {/* STATUS - select */}
               <div className="space-y-1">
