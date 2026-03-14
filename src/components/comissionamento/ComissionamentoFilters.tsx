@@ -22,7 +22,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, totalFiltered,
   onImport, onManualSubmit, isLoading
 }) => {
-  const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente || filters.contrato;
+  const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente || filters.contrato || filters.dataExecInicio || filters.dataExecFim;
     const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -160,6 +160,28 @@ export const ComissionamentoFilters: React.FC<Props> = ({
               onChange={e => setFilters({ contrato: e.target.value })}
             />
           </div>
+        </div>
+
+        {/* Data Executada Inicial */}
+        <div className="form-group">
+          <Label className="form-label">Data Exec. Inicial</Label>
+          <input
+            type="date"
+            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
+            value={filters.dataExecInicio}
+            onChange={e => setFilters({ dataExecInicio: e.target.value })}
+          />
+        </div>
+
+        {/* Data Executada Final */}
+        <div className="form-group">
+          <Label className="form-label">Data Exec. Final</Label>
+          <input
+            type="date"
+            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
+            value={filters.dataExecFim}
+            onChange={e => setFilters({ dataExecFim: e.target.value })}
+          />
         </div>
       </div>
     </div>

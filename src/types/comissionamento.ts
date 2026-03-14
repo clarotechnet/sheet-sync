@@ -30,6 +30,8 @@ export interface ComissionamentoFilters {
   nome: string;
   frente: string;
   contrato: string;
+  dataExecInicio: string;
+  dataExecFim: string;
 }
 
 export interface ComissionamentoKPIData {

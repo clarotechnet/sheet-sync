@@ -78,7 +78,9 @@ export function useComissionamento() {
     status: '',
     nome: '',
     frente: '',
-    contrato: ''
+    contrato: '',
+    dataExecInicio: '',
+    dataExecFim: ''
   });
 
   const fetchData = useCallback(async () => {
@@ -281,6 +283,13 @@ export function useComissionamento() {
       result = result.filter(r => (r.contrato || '').toLowerCase().includes(filters.contrato.toLowerCase()));
     }
 
+    if (filters.dataExecInicio) {
+      result = result.filter(r => r.data_exec && r.data_exec >= filters.dataExecInicio);
+    }
+    if (filters.dataExecFim) {
+      result = result.filter(r => r.data_exec && r.data_exec <= filters.dataExecFim);
+    }
+
 
     return result;
   }, [data, filters]);
@@ -452,7 +461,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     error,
     filters,
     setFilters: (f: Partial<ComissionamentoFilters>) => setFilters(prev => ({ ...prev, ...f })),
-    clearFilters: () => setFilters({ cidade: '', dataInicio: '', dataFim: '', status: '', nome: '', frente: '', contrato: '' }),
+    clearFilters: () => setFilters({ cidade: '', dataInicio: '', dataFim: '', status: '', nome: '', frente: '', contrato: '', dataExecInicio: '', dataExecFim: '' }),
     fetchData,
     importExcel,
     submitManualEntry,
