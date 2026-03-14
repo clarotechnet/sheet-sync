@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { Label } from '@/components/ui/label';
-import { ComissionamentoFilters as FiltersType } from '@/types/comissionamento';
-import { Search, X, Upload, FileEdit } from 'lucide-react';
+import { ComissionamentoFilters as FiltersType, ComissionamentoData } from '@/types/comissionamento';
+import { Search, X, Upload, FileEdit, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComissionamentoFormDialog } from './ComissionamentoFormDialog';
+import * as XLSX from 'xlsx';
 
 interface Props {
   filters: FiltersType;
@@ -16,11 +17,12 @@ interface Props {
   onImport: (file: File) => Promise<number>;
   onManualSubmit: (data: Record<string, any>) => Promise<void>;
   isLoading: boolean;
+  filteredData: ComissionamentoData[];
 }
 
 export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, totalFiltered,
-  onImport, onManualSubmit, isLoading
+    onImport, onManualSubmit, isLoading, filteredData
 }) => {
   const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente || filters.contrato || filters.dataExecInicio || filters.dataExecFim;
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,17 +36,46 @@ export const ComissionamentoFilters: React.FC<Props> = ({
     }
   };
 
+    const handleExportExcel = () => {
+    const fmtDate = (val: string | null) => {
+      if (!val) return '';
+      const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+      return val;
+    };
+    const exportRows = filteredData.map(row => ({
+      'Nome': row.nome || '',
+      'Cidade/Alocação': row.alocacao || '',
+      'Mês': row.data ? fmtDate(row.data) : '',
+      'Status': row.status || '',
+      'Contrato': row.contrato || '',
+      'Data Exec.': fmtDate(row.data_exec),
+      'Tipo Venda': row.tipo_venda || '',
+      'Proposta': row.proposta || '',
+      'Valores': row.valores ?? '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Comissionamento');
+    XLSX.writeFile(wb, 'comissionamento.xlsx');
+  };
+
+
+
   return (
     <div className="card">
       <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
         <h3 className="text-lg font-bold text-foreground">Filtros</h3>
-         <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
           <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="gap-1">
             <Upload className="w-4 h-4" /> Importar
           </Button>
           <Button variant="outline" size="sm" onClick={() => setFormOpen(true)} className="gap-1">
             <FileEdit className="w-4 h-4" /> Preencher Formulário
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredData.length === 0} className="gap-1">
+            <Download className="w-4 h-4" /> Exportar Excel
           </Button>
           <span className="text-sm text-muted-foreground">
             Total: <strong className="text-foreground">{totalFiltered}</strong> registros

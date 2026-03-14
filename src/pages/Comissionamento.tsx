@@ -53,6 +53,7 @@ const Comissionamento: React.FC = () => {
           onImport={hook.importExcel}
           onManualSubmit={hook.submitManualEntry}
           isLoading={hook.isLoading}
+          filteredData={hook.data}
         />
 
         {hook.isLoading && !hasData && (
