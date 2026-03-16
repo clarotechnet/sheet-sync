@@ -345,7 +345,7 @@ export function useComissionamento() {
     });
        return Object.values(map)
       .map(m => ({ nome: m.nome, totalContratos: m.contratoKeys.size, totalValor: m.totalValor }))
-      .sort((a, b) => b.totalContratos - a.totalContratos);
+      .sort((a, b) => b.totalValor - a.totalValor);
   }, [filteredData]);
 
   // Frentes KPI data

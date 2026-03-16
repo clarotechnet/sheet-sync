@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Plus, Minus } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -27,6 +27,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -40,7 +41,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
     setSubmitting(true);
     setError('');
     try {
-      await onSubmit({
+     const payload = {
         ...form,
         valores: form.valores ? parseFloat(form.valores.replace(/[^\d.,\-]/g, '').replace(',', '.')) : null,
         observacoes: form.observacoes || null,
@@ -48,11 +49,15 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
         pagamento: form.pagamento || null,
         mes_ano_proposta: form.mes_ano_proposta || null,
         mes_instalado: form.mes_instalado || null,
-      });
+     };
+      for (let i = 0; i < quantity; i++) {
+        await onSubmit({ ...payload });
+      }
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         setForm({ ...emptyForm });
+        setQuantity(1);
         onClose();
       }, 1500);
     } catch (err: any) {
@@ -64,6 +69,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
 
   const handleClear = () => {
     setForm({ ...emptyForm });
+    setQuantity(1);
     setError('');
   };
 
@@ -80,20 +86,16 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
         {success ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <CheckCircle className="w-12 h-12 text-primary" />
-            <p className="text-lg font-semibold text-foreground">Registro enviado com sucesso!</p>
+                        <p className="text-lg font-semibold text-foreground">
+              {quantity > 1 ? `${quantity} registros enviados com sucesso!` : 'Registro enviado com sucesso!'}
+            </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-              {/* NOME - combobox style: datalist for suggestions + free typing */}
+          
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Nome *</Label>
-                <Input
-                  list="nomes-list"
-                  placeholder="Digite ou selecione..."
-                  value={form.nome}
-                  onChange={e => set('nome', e.target.value)}
-                />
+                <Input list="nomes-list" placeholder="Digite ou selecione..." value={form.nome} onChange={e => set('nome', e.target.value)} />
                 <datalist id="nomes-list">
                   {uniqueNomes.map(n => <option key={n} value={n} />)}
                 </datalist>
@@ -101,13 +103,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
 
               {/* LOGIN CRIADOR - datalist for suggestions + free typing */}
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Login Criador *</Label>
-                 <Input
-                  list="logins-list"
-                  placeholder="Digite ou selecione..."
-                  value={form.login_criador}
-                  onChange={e => set('login_criador', e.target.value)}
-                />
+                <Input list="logins-list" placeholder="Digite ou selecione..." value={form.login_criador} onChange={e => set('login_criador', e.target.value)} />
                 <datalist id="logins-list">
                   {uniqueNomes.map(n => <option key={n} value={n} />)}
                 </datalist>
@@ -207,6 +203,25 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
                   {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+
+                 {/* QUANTITY MULTIPLIER */}
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-sm font-medium">Quantidade (multiplicar envio)</Label>
+                <div className="flex items-center gap-3">
+                  <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={quantity <= 1}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="text-lg font-bold text-foreground min-w-[2rem] text-center">{quantity}</span>
+                  <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setQuantity(q => q + 1)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  {quantity > 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      Este formulário será enviado {quantity}x
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -216,7 +231,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               <Button variant="outline" onClick={handleClear} disabled={submitting}>Limpar</Button>
               <Button onClick={handleSubmit} disabled={submitting || !isValid}>
                 {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Enviar
+                {quantity > 1 ? `Enviar (${quantity}x)` : 'Enviar'}
               </Button>
             </DialogFooter>
           </>
