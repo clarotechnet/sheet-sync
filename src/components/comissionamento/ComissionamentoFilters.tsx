@@ -125,7 +125,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
 
      {/* Data Inicial */}
         <div className="form-group">
-          <Label className="form-label">Data Inicial</Label>
+          <Label className="form-label">Data Inicial Agendamento</Label>
           <input
             type="date"
             className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
@@ -136,7 +136,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
 
         {/* Data Final */}
         <div className="form-group">
-          <Label className="form-label">Data Final</Label>
+          <Label className="form-label">Data Final Agendamento</Label>
           <input
             type="date"
             className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
