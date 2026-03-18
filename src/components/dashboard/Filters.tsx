@@ -17,6 +17,7 @@ interface MultiSelectProps {
 
 const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onChange }) => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -37,6 +38,11 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
     }
   };
 
+   const filteredOptions = options.filter(opt =>
+    opt.toLowerCase().includes(search.toLowerCase())
+  );
+
+
   return (
     <div className="form-group" ref={ref}>
       <Label className="form-label">{label}</Label>
@@ -56,7 +62,15 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
         
         {isOpen && (
           <div className="multi-select-dropdown open">
-            {options.map(option => (
+             <input
+              type="text"
+              className="w-full px-3 py-2 text-sm border-b border-border bg-background text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {filteredOptions.map(option => (
               <div
                 key={option}
                 className="multi-select-option"
@@ -66,6 +80,9 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
                 <span>{option}</span>
               </div>
             ))}
+              {filteredOptions.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado</div>
+            )}
           </div>
         )}
       </div>
