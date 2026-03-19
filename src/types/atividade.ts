@@ -97,6 +97,7 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     'Número da O.S 1': atividade.numero_os1 || '',
     'Tempo de Deslocamento': timeFormatToDisplay(atividade.tempo_de_deslocamento),
     'Contador Log': atividade.contador_log || '',
+    'Técnico Referência': atividade.tecnico_referencia || '',
     'Status da O.S 1': atividade.status_execucao || '',
   };
 }
