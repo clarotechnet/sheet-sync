@@ -95,6 +95,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
           
               <div className="space-y-1">
+                <Label className="text-sm font-medium">Nome *</Label>
                 <Input list="nomes-list" placeholder="Digite ou selecione..." value={form.nome} onChange={e => set('nome', e.target.value)} />
                 <datalist id="nomes-list">
                   {uniqueNomes.map(n => <option key={n} value={n} />)}
@@ -103,6 +104,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
 
               {/* LOGIN CRIADOR - datalist for suggestions + free typing */}
               <div className="space-y-1">
+                <Label className="text-sm font-medium">Login Criador *</Label>
                 <Input list="logins-list" placeholder="Digite ou selecione..." value={form.login_criador} onChange={e => set('login_criador', e.target.value)} />
                 <datalist id="logins-list">
                   {uniqueNomes.map(n => <option key={n} value={n} />)}
@@ -110,17 +112,17 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               </div>
 
               {/* ALOCAÇÃO - select */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label className="text-sm font-medium">Alocação *</Label>
                 <select className={selectClass} value={form.alocacao} onChange={e => set('alocacao', e.target.value)}>
                   <option value="">Selecione...</option>
                   {uniqueCidades.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
+              </div> */}
 
               {/* DATA */}
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Data *</Label>
+                <Label className="text-sm font-medium">Data Criação *</Label>
                 <Input type="date" value={form.data} onChange={e => set('data', e.target.value)} />
               </div>
 
@@ -162,13 +164,13 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
 
               {/* DATA AGEN */}
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Data Agen. *</Label>
+                <Label className="text-sm font-medium">Data Agendamento. *</Label>
                 <Input type="date" value={form.data_agen} onChange={e => set('data_agen', e.target.value)} />
               </div>
 
               {/* DATA EXEC */}
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Data Exec. *</Label>
+                <Label className="text-sm font-medium">Data Execução. </Label>
                 <Input type="date" value={form.data_exec} onChange={e => set('data_exec', e.target.value)} />
               </div>
 
@@ -185,10 +187,10 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
               </div> */}
 
               {/* PAGAMENTO */}
-              <div className="space-y-1">
+              {/* <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Pagamento</Label>
                 <Input placeholder="Pagamento (opcional)" value={form.pagamento} onChange={e => set('pagamento', e.target.value)} />
-              </div>
+              </div> */}
 
               {/* MÊS/ANO PROPOSTA */}
               {/* <div className="space-y-1">
