@@ -18,7 +18,9 @@ export interface Atividade {
   created_at?: string;
   contador_log?: string;
   tecnico_referencia?: string;
+  status_execucao?: string;
 }
+
 
 
 // Converte data BR (dd/mm/yy ou dd/mm/yyyy) para ISO (yyyy-mm-dd)
@@ -97,6 +99,7 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     'Tempo de Deslocamento': timeFormatToDisplay(atividade.tempo_de_deslocamento),
     'Contador Log': atividade.contador_log || '',
     'Técnico Referência': atividade.tecnico_referencia || '',
+    'Status da O.S 1': atividade.status_execucao || '',
   };
 }
 
@@ -138,5 +141,6 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     tempo_de_deslocamento: minutesToTimeFormat(data['Tempo de Deslocamento']),
     contador_log: data['Contador Log'] || undefined,
     tecnico_referencia: data['Técnico Referência'] || undefined,
+    status_execucao: data['Status da O.S 1'] || undefined,
   };
 }
