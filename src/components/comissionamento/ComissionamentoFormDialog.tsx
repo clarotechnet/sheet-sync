@@ -118,7 +118,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
                   <option value="">Selecione...</option>
                   {uniqueCidades.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
+              </div> */}
 
               {/* DATA */}
               <div className="space-y-1">
