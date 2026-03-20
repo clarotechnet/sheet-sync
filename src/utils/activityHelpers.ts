@@ -11,10 +11,14 @@ export const getActivityStatus = (item: ActivityData): ActivityStatus => {
   
   const baixa = item['Cód de Baixa 1'] || '';
   const match = baixa.match(/^(\d+)/);
- const statusOS = (item['Status da O.S 1'] || '').trim().toLowerCase();
+  const statusOS = (item['Status da O.S 1'] || '').trim().toLowerCase();
   
   if (match) {
     const code = parseInt(match[1], 10);
+       // Exceções: códigos 106 e 306 são sempre Improdutiva, mesmo se Executada
+    if (code === 106 || code === 306) {
+      return 'Improdutiva';
+    }
     if (code >= 409 || statusOS === 'executada') {
       return 'Produtiva';
     } else {
