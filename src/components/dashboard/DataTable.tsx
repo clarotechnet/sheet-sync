@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { getActivityStatus } from '@/utils/activityHelpers';
 
 type SortOrder = 'none' | 'asc' | 'desc';
+type SortField = 'recurso' | 'tipoAtividade' | 'contrato' | 'codBaixa' | 'status' | 'data' | 'intervalo';
 
 const ITEMS_PER_PAGE = 100;
 const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva','Cancelada'] as const;
@@ -17,6 +18,7 @@ export const DataTable: React.FC = () => {
   const { isAdmin } = useAuth();
 
   const [sortOrder, setSortOrder] = useState<SortOrder>('none');
+  const [sortField, setSortField] = useState<SortField>('recurso');
   const [currentPage, setCurrentPage] = useState(1);
 
   const [editRowKey, setEditRowKey] = useState<string | null>(null);
@@ -144,18 +146,28 @@ export const DataTable: React.FC = () => {
     refreshData?.();
   };
 
-  // ordenação (igual ao original)
+ const getFieldValue = (item: Record<string, string | undefined>, field: SortField): string => {
+    switch (field) {
+      case 'recurso': return (item.Recurso || '').toLowerCase();
+      case 'tipoAtividade': return (item['Tipo de Atividade'] || '').toLowerCase();
+      case 'contrato': return (item.Contrato || item.contrato || '').toLowerCase();
+      case 'codBaixa': return getCodBaixa(item).toLowerCase();
+      case 'status': return computeStatus(item).toLowerCase();
+      case 'data': return (item.Data || '').toLowerCase();
+      case 'intervalo': return (item['Intervalo de Tempo'] || '').toLowerCase();
+    }
+  }; 
   const sortedData = useMemo(() => {
     if (sortOrder === 'none') return filteredData;
 
     return [...filteredData].sort((a, b) => {
-      const recursoA = (a.Recurso || '').toString().toLowerCase();
-      const recursoB = (b.Recurso || '').toString().toLowerCase();
+      const valA = getFieldValue(a, sortField);
+      const valB = getFieldValue(b, sortField);
       return sortOrder === 'asc'
-        ? recursoA.localeCompare(recursoB, 'pt-BR')
-        : recursoB.localeCompare(recursoA, 'pt-BR');
+        ? valA.localeCompare(valB, 'pt-BR')
+        : valB.localeCompare(valA, 'pt-BR');
     });
-  }, [filteredData, sortOrder]);
+ }, [filteredData, sortOrder, sortField]);
 
   // paginação
   useEffect(() => {
@@ -172,11 +184,28 @@ export const DataTable: React.FC = () => {
     return sortedData.slice(start, end);
   }, [sortedData, pageStartIndex]);
 
-  const toggleSort = () => {
-    setSortOrder(current => (current === 'none' ? 'asc' : current === 'asc' ? 'desc' : 'none'));
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(current => (current === 'none' ? 'asc' : current === 'asc' ? 'desc' : 'none'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
     setCurrentPage(1);
     cancelEdit();
   };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field || sortOrder === 'none') {
+      return <ArrowUpAZ className="w-4 h-4 opacity-30" />;
+    }
+    return sortOrder === 'asc'
+      ? <ArrowUpAZ className="w-4 h-4 text-primary" />
+      : <ArrowDownAZ className="w-4 h-4 text-primary" />;
+  };
+
+  const sortableThClass = "cursor-pointer select-none hover:bg-muted/50 transition-colors";
+
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -233,23 +262,33 @@ export const DataTable: React.FC = () => {
           <thead>
             <tr>
               <th
-                onClick={toggleSort}
-                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                title={sortOrder === 'none' ? 'Ordenar A-Z' : sortOrder === 'asc' ? 'Ordenar Z-A' : 'Remover ordenação'}
+               onClick={() => toggleSort('recurso')}
+                className={sortableThClass}
+                title="Ordenar"
               >
                 <div className="flex items-center gap-2">
                   Recurso
-                  {sortOrder === 'asc' && <ArrowUpAZ className="w-4 h-4 text-primary" />}
-                  {sortOrder === 'desc' && <ArrowDownAZ className="w-4 h-4 text-primary" />}
-                  {sortOrder === 'none' && <ArrowUpAZ className="w-4 h-4 opacity-30" />}
+                  {renderSortIcon('recurso')}
                 </div>
               </th>
-              <th>Tipo de Atividade</th>
-              <th>Contrato</th>
-              <th>Cód de Baixa 1</th>
-              <th>Status</th>
-              <th>Data</th>
-              <th>Intervalo de Tempo</th>
+               <th onClick={() => toggleSort('tipoAtividade')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Tipo de Atividade {renderSortIcon('tipoAtividade')}</div>
+              </th>
+              <th onClick={() => toggleSort('contrato')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Contrato {renderSortIcon('contrato')}</div>
+              </th>
+              <th onClick={() => toggleSort('codBaixa')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Cód de Baixa 1 {renderSortIcon('codBaixa')}</div>
+              </th>
+              <th onClick={() => toggleSort('status')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Status {renderSortIcon('status')}</div>
+              </th>
+              <th onClick={() => toggleSort('data')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Data {renderSortIcon('data')}</div>
+              </th>
+              <th onClick={() => toggleSort('intervalo')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Intervalo de Tempo {renderSortIcon('intervalo')}</div>
+              </th>
             </tr>
           </thead>
 
