@@ -11,14 +11,20 @@ export const getActivityStatus = (item: ActivityData): ActivityStatus => {
   
   const baixa = item['Cód de Baixa 1'] || '';
   const match = baixa.match(/^(\d+)/);
+ const statusOS = (item['Status da O.S 1'] || '').trim().toLowerCase();
   
   if (match) {
     const code = parseInt(match[1], 10);
-    if (code >= 409) {
+    if (code >= 409 || statusOS === 'executada') {
       return 'Produtiva';
     } else {
       return 'Improdutiva';
     }
+  }
+
+  // Sem código numérico, mas Status da O.S 1 === 'Executada' → Produtiva
+  if (statusOS === 'executada') {
+    return 'Produtiva';
   }
   return 'Pendente';
 };

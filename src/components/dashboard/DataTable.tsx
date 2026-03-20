@@ -50,10 +50,13 @@ export const DataTable: React.FC = () => {
   const computeStatus = (item: Record<string, string | undefined>, draft?: { status?: string; cod?: string }) => {
     const cod = (draft?.cod ?? getCodBaixa(item) ?? '').trim();
     const numeric = getNumericCode(cod);
+    const statusOS = (item['Status da O.S 1'] || '').trim().toLowerCase();
 
     if (numeric != null) {
-      return numeric >= 409 ? 'Produtiva' : 'Improdutiva';
+      return (numeric >= 409 || statusOS === 'executada') ? 'Produtiva' : 'Improdutiva';
     }
+
+     if (statusOS === 'executada') return 'Produtiva';
 
     // sem código: usa seu helper
     if (draft?.status) return draft.status;

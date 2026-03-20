@@ -110,7 +110,8 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
       // Detectar colunas duplicadas "Tipo de Atividade"
       const tipoAtividadeIndices: number[] = [];
       rawHeaders.forEach((header, index) => {
-        if (String(header || '').trim().toLowerCase() === 'tipo de atividade') {
+        const normalized = String(header || '').trim().toLowerCase();
+        if (normalized === 'tipo de atividade' || normalized === 'tipo de atividade.1') {
           tipoAtividadeIndices.push(index);
         }
       });
@@ -158,11 +159,17 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       // Criar headers únicos, marcando duplicatas para ignorar
       const headers = rawHeaders.map((header, index) => {
-        const normalized = String(header || '').trim();
-        if (normalized.toLowerCase() === 'tipo de atividade' && index !== tipoAtividadePreferredIndex) {
+        const normalized = String(header || '').trim().toLowerCase();
+        const isTipoAtividade = normalized === 'tipo de atividade' || normalized === 'tipo de atividade.1';
+
+        if (isTipoAtividade && index !== tipoAtividadePreferredIndex) {
           return `__IGNORE_${index}__`;
         }
-        return normalized;
+         // Renomeia "Tipo de Atividade.1" para "Tipo de Atividade"
+        if (isTipoAtividade && index === tipoAtividadePreferredIndex) {
+          return 'Tipo de Atividade';
+        }
+        return String(header || '').trim();
       });
 
       // valida com base nos headers originais (sem __IGNORE_)

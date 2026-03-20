@@ -71,7 +71,8 @@ export const SummarySection: React.FC = () => {
     const counts: Record<string, number> = {};
     
     filteredData.forEach(item => {
-      const baixa = item['Cód de Baixa 1'] || 'Não Informado';
+      const baixa = item['Cód de Baixa 1'];
+      if (!baixa) return;
       counts[baixa] = (counts[baixa] || 0) + 1;
     });
 

@@ -23,73 +23,74 @@ export const useAtividades = (): UseAtividadesReturn => {
   
   const isInitialLoadRef = useRef(true);
   const lastSyncedDataRef = useRef<string>('');
+  const pendingSyncRef = useRef<ActivityData[] | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    isInitialLoadRef.current = true;
+//   const fetchData = useCallback(async () => {
+//     setIsLoading(true);
+//     setError(null);
+//     isInitialLoadRef.current = true;
     
-    try {
-      console.log("Buscando dados do Supabase...");
+//     try {
+//       console.log("Buscando dados do Supabase...");
       
-      // Busca todas as atividades - usando paginação para evitar limite de 1000
-      let allData: Atividade[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+//       // Busca todas as atividades - usando paginação para evitar limite de 1000
+//       let allData: Atividade[] = [];
+//       let page = 0;
+//       const pageSize = 1000;
+//       let hasMore = true;
 
-      while (hasMore) {
-        const { data: atividades, error: fetchError } = await externalSupabase
-          .from('atividades')
-          .select('*')
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-          .order('data_atividade', { ascending: false });
+//       while (hasMore) {
+//         const { data: atividades, error: fetchError } = await externalSupabase
+//           .from('atividades')
+//           .select('*')
+//           .range(page * pageSize, (page + 1) * pageSize - 1)
+//           .order('data_atividade', { ascending: false });
 
-        if (fetchError) {
-          throw new Error(fetchError.message);
-        }
+//         if (fetchError) {
+//           throw new Error(fetchError.message);
+//         }
 
-        if (atividades && atividades.length > 0) {
-          allData = [...allData, ...atividades];
-          page++;
-          hasMore = atividades.length === pageSize;
-        } else {
-          hasMore = false;
-        }
-      }
+//         if (atividades && atividades.length > 0) {
+//           allData = [...allData, ...atividades];
+//           page++;
+//           hasMore = atividades.length === pageSize;
+//         } else {
+//           hasMore = false;
+//         }
+//       }
 
-      if (allData.length > 0) {
-        console.log(`Dados recebidos: ${allData.length} linhas.`);
-        const convertedData = allData.map(atividadeToActivityData) as ActivityData[];
-        setDataState(convertedData);
-        lastSyncedDataRef.current = JSON.stringify(convertedData);
-      } else {
-        console.log("Nenhum dado encontrado no Supabase.");
-        setDataState([]);
-      }
-    } catch (err) {
-      console.error("Erro ao buscar dados:", err);
-      setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        isInitialLoadRef.current = false;
-        console.log("Sistema pronto para sincronização.");
-      }, 2000);
-    }
-  }, []);
+//       if (allData.length > 0) {
+//         console.log(`Dados recebidos: ${allData.length} linhas.`);
+//         const convertedData = allData.map(atividadeToActivityData) as ActivityData[];
+//         setDataState(convertedData);
+//         lastSyncedDataRef.current = JSON.stringify(convertedData);
+//       } else {
+//         console.log("Nenhum dado encontrado no Supabase.");
+//         setDataState([]);
+//       }
+//     } catch (err) {
+//       console.error("Erro ao buscar dados:", err);
+//       setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
+//     } finally {
+//       setIsLoading(false);
+//       setTimeout(() => {
+//         isInitialLoadRef.current = false;
+//         console.log("Sistema pronto para sincronização.");
+//       }, 2000);
+//     }
+//   }, []);
 
-// Observação importante: para o UPSERT funcionar, o índice/constraint no banco precisa ser
-  // em cima das COLUNAS (numero_os1,numero_os,contrato,data_atividade) e essas colunas devem
-  // ser NOT NULL (com defaults). Índice com COALESCE causa 409 mesmo com upsert.
+// // Observação importante: para o UPSERT funcionar, o índice/constraint no banco precisa ser
+//   // em cima das COLUNAS (numero_os1,numero_os,contrato,data_atividade) e essas colunas devem
+//   // ser NOT NULL (com defaults). Índice com COALESCE causa 409 mesmo com upsert.
   const deduplicateByCompositeKey = useCallback(
     (atividades: Omit<Atividade, 'id' | 'created_at'>[]) => {
       // Remove espaços invisíveis (NBSP) e normaliza string
       const normalizeTextKey = (v: unknown) => {
         if (v === null || v === undefined) return '';
         return String(v)
-          .replace(/\u00A0/g, ' ') // NBSP -> espaço normal
-          .replace(/\s+/g, ' ') // colapsa espaços
+          .replace(/\u00A0/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
       };
 
@@ -101,7 +102,8 @@ export const useAtividades = (): UseAtividadesReturn => {
         if (s.includes('T')) return s.split('T')[0];
         // "2026-01-26 00:00:00"
         if (s.includes(' ')) return s.split(' ')[0];
-        return s; // já deve estar YYYY-MM-DD
+        return s;
+        // return s; // já deve estar YYYY-MM-DD
       };
 
       const seen = new Map<string, Omit<Atividade, 'id' | 'created_at'>>();
@@ -132,12 +134,12 @@ export const useAtividades = (): UseAtividadesReturn => {
     []
   );
 
-   const syncData = useCallback(async (rows: ActivityData[]) => {
-    if (isInitialLoadRef.current) {
-      console.log("Sincronização bloqueada - carregamento inicial em andamento.");
-      return;
-    }
-
+  //  const syncData = useCallback(async (rows: ActivityData[]) => {
+  //   if (isInitialLoadRef.current) {
+  //     console.log("Sincronização bloqueada - carregamento inicial em andamento.");
+  //     return;
+  //   }
+  const doSync = useCallback(async (rows: ActivityData[]) => {
     const currentDataHash = JSON.stringify(rows);
     if (currentDataHash === lastSyncedDataRef.current) {
       console.log("Dados idênticos aos já sincronizados - pulando envio.");
@@ -190,6 +192,77 @@ export const useAtividades = (): UseAtividadesReturn => {
     }
   }, [deduplicateByCompositeKey]);
 
+  const processPendingSync = useCallback(async () => {
+    const pending = pendingSyncRef.current;
+    if (pending) {
+      pendingSyncRef.current = null;
+      console.log("Processando sincronização pendente da fila...");
+      await doSync(pending);
+    }
+  }, [doSync]);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    isInitialLoadRef.current = true;
+
+    try {
+      console.log("Buscando dados do Supabase...");
+
+      let allData: Atividade[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: atividades, error: fetchError } = await externalSupabase
+          .from('atividades')
+          .select('*')
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order('data_atividade', { ascending: false });
+
+        if (fetchError) {
+          throw new Error(fetchError.message);
+        }
+
+        if (atividades && atividades.length > 0) {
+          allData = [...allData, ...atividades];
+          page++;
+          hasMore = atividades.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allData.length > 0) {
+        console.log(`Dados recebidos: ${allData.length} linhas.`);
+        const convertedData = allData.map(atividadeToActivityData) as ActivityData[];
+        setDataState(convertedData);
+        lastSyncedDataRef.current = JSON.stringify(convertedData);
+      } else {
+        console.log("Nenhum dado encontrado no Supabase.");
+        setDataState([]);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar dados:", err);
+      setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
+    } finally {
+      setIsLoading(false);
+      isInitialLoadRef.current = false;
+      console.log("Sistema pronto para sincronização.");
+      processPendingSync();
+    }
+  }, [processPendingSync]);
+
+  const syncData = useCallback(async (rows: ActivityData[]) => {
+    if (isInitialLoadRef.current) {
+      console.log("Carregamento inicial em andamento - dados adicionados à fila de sincronização.");
+      pendingSyncRef.current = rows;
+      return;
+    }
+    await doSync(rows);
+   }, [doSync]);
+
   const setData = useCallback((newData: ActivityData[]) => {
     setDataState(newData);
   }, []);
@@ -198,16 +271,17 @@ export const useAtividades = (): UseAtividadesReturn => {
     console.log(`Substituindo dados: ${newData.length} registros do arquivo.`);
     setDataState(newData);
     
-    if (!isInitialLoadRef.current) {
-      lastSyncedDataRef.current = '';
-      syncData(newData);
-    } else {
-      console.log("Upload durante carregamento - sincronização será feita após carregar.");
-      setTimeout(() => {
-        lastSyncedDataRef.current = '';
-        syncData(newData);
-      }, 2500);
-    }
+    // if (!isInitialLoadRef.current) {
+    //   lastSyncedDataRef.current = '';
+    //   syncData(newData);
+    // } else {
+    //   console.log("Upload durante carregamento - sincronização será feita após carregar.");
+    //   setTimeout(() => {
+    //     lastSyncedDataRef.current = '';
+    //     syncData(newData);
+    //   }, 2500);
+    // } lastSyncedDataRef.current = '';
++    syncData(newData);
   }, [syncData]);
 
   return {
