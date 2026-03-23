@@ -15,7 +15,6 @@ export const getActivityStatus = (item: ActivityData): ActivityStatus => {
   
   if (match) {
     const code = parseInt(match[1], 10);
-       // Exceções: códigos 106 e 306 são sempre Improdutiva, mesmo se Executada
     if (code === 106 || code === 306) {
       return 'Improdutiva';
     }

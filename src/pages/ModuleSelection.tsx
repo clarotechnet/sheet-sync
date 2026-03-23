@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Activity, DollarSign, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logo from '../../public/LogoNovo.png';
+import { toast } from '@/hooks/use-toast';
 
 export default function ModuleSelection() {
   const navigate = useNavigate();
@@ -81,7 +82,17 @@ export default function ModuleSelection() {
 
             {/* Card 2 - Comissionamento */}
             <button
-              onClick={() => navigate('/comissionamento')}
+               onClick={() => {
+                if (!isAdmin) {
+                  toast({
+                    title: 'Acesso negado',
+                    description: 'Você não é autorizado a entrar nesse módulo. Por favor, verifique sua autorização com um Administrador.',
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+                navigate('/comissionamento');
+              }}
               className="card group cursor-pointer text-left hover:border-primary/50 transition-all duration-300"
             >
               <div className="flex flex-col items-center text-center gap-6 py-4">
