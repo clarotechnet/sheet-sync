@@ -52,8 +52,11 @@ export interface TechnicianChartData {
 
 export interface RankingData {
   nome: string;
-  totalContratos: number;
-  totalValor: number;
+  total_contratos: number; // Mudou de totalContratos
+  total_valor: number;     // Mudou de totalValor
+  total_valor_confirmado: number;
+  total_valor_pendente: number;
+  total_valor_cancelado: number;
 }
 
 export interface TecnicoFrente {

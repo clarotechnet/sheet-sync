@@ -334,18 +334,50 @@ export function useComissionamento() {
   }, [filteredData]);
 
   
-  // Ranking — conta contratos únicos por (contrato+data), mesmo contrato em dias diferentes conta separado
+  // Ranking — conta contratos únicos por (contrato+data) e separa totais por status
   const ranking = useMemo(() => {
-   const map: Record<string, { nome: string; contratoKeys: Set<string>; totalValor: number }> = {};
+    const map: Record<string, {
+      nome: string;
+      contratoKeys: Set<string>;
+      total_valor: number;
+      total_valor_confirmado: number;
+      total_valor_pendente: number;
+      total_valor_cancelado: number;
+    }> = {};
+
     filteredData.forEach(r => {
-      if (!map[r.nome]) map[r.nome] = { nome: r.nome, contratoKeys: new Set(), totalValor: 0 };
+      if (!map[r.nome]) {
+        map[r.nome] = {
+          nome: r.nome,
+          contratoKeys: new Set(),
+          total_valor: 0,
+          total_valor_confirmado: 0,
+          total_valor_pendente: 0,
+          total_valor_cancelado: 0
+        };
+      }
+
       const key = `${(r.contrato || '').trim().toUpperCase()}||${(r.data || '').trim()}`;
+      const valor = r.valores || 0;
+
       map[r.nome].contratoKeys.add(key);
-      map[r.nome].totalValor += r.valores || 0;
+      map[r.nome].total_valor += valor;
+
+      if (r.status === 'CONFIRMADA') map[r.nome].total_valor_confirmado += valor;
+      else if (r.status === 'PENDENTE') map[r.nome].total_valor_pendente += valor;
+      else if (r.status === 'CANCELADA') map[r.nome].total_valor_cancelado += valor;
     });
-       return Object.values(map)
-      .map(m => ({ nome: m.nome, totalContratos: m.contratoKeys.size, totalValor: m.totalValor }))
-      .sort((a, b) => b.totalValor - a.totalValor);
+
+    return Object.values(map)
+      .map(m => ({
+        nome: m.nome,
+        total_contratos: m.contratoKeys.size,
+        total_valor: m.total_valor,
+        total_valor_confirmado: m.total_valor_confirmado,
+        total_valor_pendente: m.total_valor_pendente,
+        total_valor_cancelado: m.total_valor_cancelado
+      }))
+      .sort((a, b) => b.total_valor_confirmado - a.total_valor_confirmado);
   }, [filteredData]);
 
   // Frentes KPI data

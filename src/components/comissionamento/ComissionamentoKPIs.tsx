@@ -63,5 +63,6 @@ export const ComissionamentoKPIs: React.FC<Props> = ({ kpis }) => {
         gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
       />
     </div>
+    
   );
 };
