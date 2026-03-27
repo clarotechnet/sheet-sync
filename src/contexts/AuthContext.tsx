@@ -1,4 +1,4 @@
-﻿﻿﻿﻿import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+﻿﻿import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 
@@ -91,9 +91,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Get initial session
-    externalSupabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    externalSupabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       if (!initialSession) {
         setIsLoading(false);
+      }
+      // Warm-up: pré-aquece o Supabase para evitar cold start ao navegar para módulos
+      try {
+        await externalSupabase.from('atividades').select('id').limit(1);
+        console.log('[Warm-up] Supabase aquecido com sucesso.');
+      } catch {
+        console.warn('[Warm-up] Falha ao aquecer Supabase (não crítico).');
       }
     });
 
