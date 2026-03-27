@@ -11,25 +11,30 @@ export const getActivityStatus = (item: ActivityData): ActivityStatus => {
   
   const baixa = item['Cód de Baixa 1'] || '';
   const match = baixa.match(/^(\d+)/);
-  const statusOS = (item['Status da O.S 1'] || '').trim().toLowerCase();
-  
+  //Motivo de Fechamento Externo
+  const statusOS = (item['Motivo de Fechamento Externo'] || '').trim().toLowerCase();
+  //Executado no Sistema NETSMS = Produtiva, Cancelado no Sistema NETSMS || Liberado no Sistema NETSMS === cancelado 
   if (match) {
     const code = parseInt(match[1], 10);
-    if (code === 106 || code === 306) {
-      return 'Improdutiva';
-    }
-    if (code >= 409 || statusOS === 'executada') {
+    // if (code === 106 || code === 306) {
+    //   return 'Improdutiva';
+    // }
+    if (code >= 409 || statusOS === 'Executado no Sistema NETSMS') {
       return 'Produtiva';
-    } else {
+    } else if (statusOS === 'Cancelado no Sistema NETSMS' || statusOS === 'Liberado no Sistema NETSMS') {
+      return 'Cancelado';
+    }else {
       return 'Improdutiva';
     }
+  }else{
+    return 'Pendente';
   }
 
   // Sem código numérico, mas Status da O.S 1 === 'Executada' → Produtiva
-  if (statusOS === 'executada') {
-    return 'Produtiva';
-  }
-  return 'Pendente';
+  // if (statusOS === 'executada') {
+  //   return 'Produtiva';
+  // }
+  // return 'Pendente';
 };
 
 export const getTechnicianDisplayName = (fullName: string | undefined): string => {
