@@ -12,16 +12,16 @@ export const getActivityStatus = (item: ActivityData): ActivityStatus => {
   const baixa = item['Cód de Baixa 1'] || '';
   const match = baixa.match(/^(\d+)/);
   //Motivo de Fechamento Externo
-  const statusOS = (item['Motivo de Fechamento Externo'] || '').trim().toLowerCase();
+  const motivoFechamento = (item['Motivo de Fechamento Externo'] || '').trim().toLowerCase();
   //Executado no Sistema NETSMS = Produtiva, Cancelado no Sistema NETSMS || Liberado no Sistema NETSMS === cancelado 
   if (match) {
     const code = parseInt(match[1], 10);
     // if (code === 106 || code === 306) {
     //   return 'Improdutiva';
     // }
-    if (code >= 409 || statusOS === 'Executado no Sistema NETSMS') {
+    if (code >= 409 || motivoFechamento === 'executado no sistema netsms') {
       return 'Produtiva';
-    } else if (statusOS === 'Cancelado no Sistema NETSMS' || statusOS === 'Liberado no Sistema NETSMS') {
+    } else if (motivoFechamento === 'cancelado no sistema netsms' || motivoFechamento === 'liberado no sistema netsms') {
       return 'Cancelado';
     }else {
       return 'Improdutiva';
