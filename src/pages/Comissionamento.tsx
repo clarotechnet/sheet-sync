@@ -9,6 +9,7 @@ import { ComissionamentoCharts } from '@/components/comissionamento/Comissioname
 import { ComissionamentoTable } from '@/components/comissionamento/ComissionamentoTable';
 
 import { ComissionamentoFrentes } from '@/components/comissionamento/ComissionamentoFrentes';
+import { ComissionamentoValores } from '@/components/comissionamento/ComissionamentoValores';
 import { TabNavigation } from '@/components/dashboard/TabNavigation';
 import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'charts', label: 'Gráficos' },
   { id: 'frentes', label: 'Frentes' },
   { id: 'table', label: 'Dados Detalhados' },
+  { id: 'valores', label: 'Valores' },
 ];
 
 const Comissionamento: React.FC = () => {
@@ -88,6 +90,9 @@ const Comissionamento: React.FC = () => {
                   uniqueNomes={hook.uniqueNomes}
                   uniqueCidades={hook.uniqueCidades}
                 />
+              )}
+               {activeTab === 'valores' && (
+                <ComissionamentoValores data={hook.data} />
               )}
             </div>
           </>
