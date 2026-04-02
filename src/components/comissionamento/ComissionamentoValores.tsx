@@ -135,7 +135,7 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
               <tr className="bg-muted/50 border-b border-border">
                 <th className="text-left p-3 font-semibold text-foreground">Nome</th>
                 <th className="text-left p-3 font-semibold text-foreground">Cidade</th>
-                <th className="text-center p-3 font-semibold text-foreground">Contratos</th>
+                <th className="text-center p-3 font-semibold text-foreground">Total OS.</th>
                 <th className="text-right p-3 font-semibold text-foreground">Total R$</th>
               </tr>
             </thead>
