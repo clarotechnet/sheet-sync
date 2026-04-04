@@ -89,7 +89,7 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
       <h1>Relatório de Valores - Comissionamento Técnico</h1>
       <p class="date">Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
       <table>
-        <thead><tr><th>Nome</th><th>Cidade</th><th>Contratos</th><th>Total R$</th></tr></thead>
+        <thead><tr><th>Nome</th><th>Cidade</th><th>Total OS.</th><th>Total R$</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
         <tfoot><tr>
           <td colspan="2">TOTAL</td>
