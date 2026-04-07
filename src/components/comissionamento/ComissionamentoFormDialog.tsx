@@ -134,7 +134,7 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
 
              {/* TIPO VENDA - free text */}
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Tipo Venda *</Label>
+                <Label className="text-sm font-medium">Tipo de Oferta *</Label>
                 <Input placeholder="Ex: WIFI MESH" value={form.tipo_venda} onChange={e => set('tipo_venda', e.target.value)} />
               </div>
 

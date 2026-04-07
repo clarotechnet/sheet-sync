@@ -124,7 +124,7 @@ export const ComissionamentoFrentes: React.FC<Props> = ({ frentesData, selectedF
       <div className="card">
         <h4 className="mb-4 flex items-center gap-2 text-lg font-bold">
           <TrendingDown className="w-5 h-5 text-destructive" />
-          Ranking Negativo — Técnicos sem venda confirmada no período
+          Ranking Negativo — Técnicos sem Oferta confirmada no período
         </h4>
         {allNaoVenderam.length > 0 ? (
           <div className="overflow-x-auto">
@@ -145,7 +145,7 @@ export const ComissionamentoFrentes: React.FC<Props> = ({ frentesData, selectedF
                     <td className="py-2 px-3 text-muted-foreground">{t.frente}</td>
                     <td className="py-2 px-3">
                       <span className="inline-flex items-center gap-1 text-destructive text-xs font-semibold">
-                        <TrendingDown className="w-3 h-3" /> Sem venda
+                        <TrendingDown className="w-3 h-3" /> Sem Oferta
                       </span>
                     </td>
                   </tr>

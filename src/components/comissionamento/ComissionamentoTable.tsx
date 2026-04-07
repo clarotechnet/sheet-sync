@@ -66,7 +66,7 @@ export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, onDelete
     { key: 'status', label: 'Status' },
     { key: 'contrato', label: 'Contrato' },
     { key: 'data_exec', label: 'Data Exec.' },
-    { key: 'tipo_venda', label: 'Tipo Venda' },
+    { key: 'tipo_venda', label: 'Tipo de Oferta' },
     { key: 'proposta', label: 'Proposta' },
     { key: 'valores', label: 'Valores' },
   ];
