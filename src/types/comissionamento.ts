@@ -23,13 +23,13 @@ export interface ComissionamentoData {
 }
 
 export interface ComissionamentoFilters {
-  cidade: string;
+  cidade: string[];
   dataInicio: string;
   dataFim: string;
-  status: string;
-  nome: string;
-  frente: string;
-  contrato: string;
+  status: string[];
+  nome: string[];
+  frente: string[]  ;
+  contrato: string[];
   dataExecInicio: string;
   dataExecFim: string;
 }

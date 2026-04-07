@@ -72,13 +72,13 @@ export function useComissionamento() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ComissionamentoFilters>({
-    cidade: '',
+    cidade: [],
     dataInicio: '',
     dataFim: '',
-    status: '',
-    nome: '',
-    frente: '',
-    contrato: '',
+    status: [],
+    nome: [],
+    frente: [],
+    contrato: [],
     dataExecInicio: '',
     dataExecFim: ''
   });
@@ -254,8 +254,8 @@ export function useComissionamento() {
   const filteredData = useMemo(() => {
     let result = [...data];
 
-    if (filters.cidade) {
-      result = result.filter(r => (r.alocacao || '').toLowerCase().includes(filters.cidade.toLowerCase()));
+    if (filters.cidade.length > 0) {
+      result = result.filter(r => filters.cidade.some(c => (r.alocacao || '').toLowerCase().includes(c.toLowerCase())));
     }
     if (filters.dataInicio) {
       result = result.filter(r => {
@@ -269,18 +269,18 @@ export function useComissionamento() {
         return d && d <= filters.dataFim;
       });
     }
-    if (filters.status) {
-      result = result.filter(r => r.status === filters.status);
+     if (filters.status.length > 0) {
+      result = result.filter(r => filters.status.includes(r.status || ''));
     }
-    if (filters.nome) {
-      result = result.filter(r => (r.nome || '').toLowerCase().includes(filters.nome.toLowerCase()));
+     if (filters.nome.length > 0) {
+      result = result.filter(r => filters.nome.some(n => (r.nome || '').toLowerCase().includes(n.toLowerCase())));
     }
-    if (filters.frente) {
-      result = result.filter(r => (r.frente || '') === filters.frente);
+     if (filters.frente.length > 0) {
+      result = result.filter(r => filters.frente.includes(r.frente || ''));
     }
 
-    if (filters.contrato) {
-      result = result.filter(r => (r.contrato || '').toLowerCase().includes(filters.contrato.toLowerCase()));
+    if (filters.contrato.length > 0) {
+      result = result.filter(r => filters.contrato.some(c => (r.contrato || '').toLowerCase().includes(c.toLowerCase())));
     }
 
     if (filters.dataExecInicio) {
@@ -385,8 +385,8 @@ export function useComissionamento() {
     const frenteGroups = new Map<string, { tecnicos: Set<string>; tecComVenda: Set<string>; qtdConfirmada: number; totalGeral: number }>();
 
        // Initialize frentes from tecnicos_frentes, filtering by city if selected
-    const filteredTecnicos = filters.cidade
-      ? tecnicosFrente.filter(tf => (tf.cidade || '').toLowerCase().includes(filters.cidade.toLowerCase()))
+    const filteredTecnicos = filters.cidade.length > 0
+      ? tecnicosFrente.filter(tf => filters.cidade.some(c => (tf.cidade || '').toLowerCase().includes(c.toLowerCase())))
       : tecnicosFrente;
 
     filteredTecnicos.forEach(tf => {
@@ -493,7 +493,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     error,
     filters,
     setFilters: (f: Partial<ComissionamentoFilters>) => setFilters(prev => ({ ...prev, ...f })),
-    clearFilters: () => setFilters({ cidade: '', dataInicio: '', dataFim: '', status: '', nome: '', frente: '', contrato: '', dataExecInicio: '', dataExecFim: '' }),
+    clearFilters: () => setFilters({ cidade: [], dataInicio: '', dataFim: '', status: [], nome: [], frente: [], contrato: [], dataExecInicio: '', dataExecFim: '' }),
     fetchData,
     importExcel,
     submitManualEntry,

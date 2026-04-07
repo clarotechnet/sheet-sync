@@ -79,7 +79,7 @@ const Comissionamento: React.FC = () => {
                {activeTab === 'frentes' && (
                 <ComissionamentoFrentes
                   frentesData={hook.frentesData}
-                  selectedFrente={hook.filters.frente}
+                  selectedFrente={hook.filters.frente[0] || ''}
                 />
               )}
                {activeTab === 'table' && (

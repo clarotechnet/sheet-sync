@@ -1,10 +1,92 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { ComissionamentoFilters as FiltersType, ComissionamentoData } from '@/types/comissionamento';
 import { Search, X, Upload, FileEdit, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComissionamentoFormDialog } from './ComissionamentoFormDialog';
 import * as XLSX from 'xlsx';
+
+interface MultiSelectProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+}
+
+const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleOption = (option: string) => {
+    if (selected.includes(option)) {
+      onChange(selected.filter(s => s !== option));
+    } else {
+      onChange([...selected, option]);
+    }
+  };
+
+  const filteredOptions = options.filter(opt =>
+    opt.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+   <div className="form-group" ref={ref} style={{ zIndex: isOpen ? 50 : 1, position: 'relative' }}>
+      <Label className="form-label">{label}</Label>
+      <div className="multi-select">
+        <div
+          className={`multi-select-button ${isOpen ? 'open' : ''}`}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <span className="multi-select-text">
+            {selected.length === 0 ? 'Todos' : `${selected.length} selecionado(s)`}
+          </span>
+          {selected.length > 0 && (
+            <span className="selected-count">{selected.length}</span>
+          )}
+          <span className={`multi-select-arrow ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+        </div>
+
+        {isOpen && (
+          <div className="multi-select-dropdown open">
+            <input
+              type="text"
+              className="w-full px-3 py-2 text-sm border-b border-border bg-background text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {filteredOptions.map(option => (
+              <div
+                key={option}
+                className="multi-select-option"
+                onClick={() => toggleOption(option)}
+              >
+                <div className={`multi-select-checkbox ${selected.includes(option) ? 'checked' : ''}`} />
+                <span>{option}</span>
+              </div>
+            ))}
+            {filteredOptions.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 interface Props {
   filters: FiltersType;
@@ -24,9 +106,13 @@ export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, totalFiltered,
     onImport, onManualSubmit, isLoading, filteredData
 }) => {
-  const hasFilters = filters.cidade || filters.dataInicio || filters.dataFim || filters.status || filters.nome || filters.frente || filters.contrato || filters.dataExecInicio || filters.dataExecFim;
+ const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.dataExecInicio || filters.dataExecFim;
     const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
+
+  const uniqueContratos = React.useMemo(() => {
+    return [...new Set(filteredData.map(r => r.contrato).filter(Boolean))].sort() as string[];
+  }, [filteredData]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,7 +146,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
     XLSX.writeFile(wb, 'comissionamento.xlsx');
   };
 
-
+const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
 
   return (
     <div className="card">
@@ -98,30 +184,19 @@ export const ComissionamentoFilters: React.FC<Props> = ({
 
 
       <div className="filter-section">
-        {/* Frente */}
-        <div className="form-group">
-          <Label className="form-label">Frente</Label>
-          <select
-            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
-            value={filters.frente}
-            onChange={e => setFilters({ frente: e.target.value })}
-          >
-            <option value="">Todas</option>
-            {uniqueFrente.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
-        {/* Cidade */}
-        <div className="form-group">
-          <Label className="form-label">Cidade / Alocação</Label>
-          <select
-            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
-            value={filters.cidade}
-            onChange={e => setFilters({ cidade: e.target.value })}
-          >
-            <option value="">Todas</option>
-            {uniqueCidades.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
+       <MultiSelect
+          label="Frente"
+          options={uniqueFrente}
+          selected={filters.frente}
+          onChange={(val) => setFilters({ frente: val })}
+        />
+
+        <MultiSelect
+          label="Cidade / Alocação"
+          options={uniqueCidades}
+          selected={filters.cidade}
+          onChange={(val) => setFilters({ cidade: val })}
+        />
 
      {/* Data Inicial */}
         <div className="form-group">
@@ -145,53 +220,25 @@ export const ComissionamentoFilters: React.FC<Props> = ({
           />
         </div>
 
-        {/* Status */}
-        <div className="form-group">
-          <Label className="form-label">Status</Label>
-          <select
-            className="form-control bg-card border border-border rounded-lg px-3 py-2 text-foreground w-full"
-            value={filters.status}
-            onChange={e => setFilters({ status: e.target.value })}
-          >
-            <option value="">Todos</option>
-            <option value="PENDENTE">Pendente</option>
-            <option value="CONFIRMADA">Confirmada</option>
-            <option value="CANCELADA">Cancelada</option>
-          </select>
-        </div>
+     <MultiSelect
+          label="Status"
+          options={statusOptions}
+          selected={filters.status}
+          onChange={(val) => setFilters({ status: val })}
+        />
+<MultiSelect
+          label="Técnico"
+          options={uniqueNomes}
+          selected={filters.nome}
+          onChange={(val) => setFilters({ nome: val })}
+        />
 
-        {/* Nome */}
-        <div className="form-group">
-          <Label className="form-label">Técnico</Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              className="form-control bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-foreground w-full"
-              placeholder="Buscar por nome..."
-              value={filters.nome}
-              onChange={e => setFilters({ nome: e.target.value })}
-              list="nomes-list"
-            />
-            <datalist id="nomes-list">
-              {uniqueNomes.map(n => <option key={n} value={n} />)}
-            </datalist>
-          </div>
-        </div>
-         {/* Contrato */}
-        <div className="form-group">
-          <Label className="form-label">Contrato</Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              className="form-control bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-foreground w-full"
-              placeholder="Buscar por contrato..."
-              value={filters.contrato}
-              onChange={e => setFilters({ contrato: e.target.value })}
-            />
-          </div>
-        </div>
+        <MultiSelect
+          label="Contrato"
+          options={uniqueContratos}
+          selected={filters.contrato}
+          onChange={(val) => setFilters({ contrato: val })}
+        />
 
         {/* Data Executada Inicial */}
         <div className="form-group">
