@@ -18,6 +18,8 @@ export interface Atividade {
   created_at?: string;
   contador_log?: string;
   tecnico_referencia?: string;
+  is_revisita?: boolean;
+  ofensor_revisita?: string;
   status_execucao?: string;
 }
 
@@ -98,6 +100,8 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     'Tempo de Deslocamento': timeFormatToDisplay(atividade.tempo_de_deslocamento),
     'Contador Log': atividade.contador_log || '',
     'Técnico Referência': atividade.tecnico_referencia || '',
+    'Is Revisita': atividade.is_revisita ? 'true' : 'false',
+    'Ofensor Revisita': atividade.ofensor_revisita || '',
     'Motivo de Fechamento Externo': atividade.status_execucao || '',
   };
 }
@@ -140,6 +144,8 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     tempo_de_deslocamento: minutesToTimeFormat(data['Tempo de Deslocamento']),
     contador_log: data['Contador Log'] || undefined,
     tecnico_referencia: data['Técnico Referência'] || undefined,
+    is_revisita: data['Is Revisita'] === 'true',
+    ofensor_revisita: data['Ofensor Revisita'] || undefined,
     status_execucao: data['Motivo de Fechamento Externo']?.trim() || null,
   };
 }

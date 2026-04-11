@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { ChartSection } from '@/components/dashboard/ChartSection';
 import { MapSection } from '@/components/dashboard/MapSection';
 import { LogsTable } from '@/components/dashboard/LogsTable';
+import { RevisitasTable } from '@/components/dashboard/RevisitasTable';
 
 const TABS = [
   { id: 'summary', label: 'Resumo' },
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'map', label: 'Mapa' },
   { id: 'table', label: 'Análise Detalhada' },
   { id: 'logs', label: 'Logs' },
+  { id: 'revisitas', label: 'Revisitas' },
 ];
 
 const DashboardContent: React.FC = () => {
@@ -79,6 +81,7 @@ const DashboardContent: React.FC = () => {
               {activeTab === 'map' && <MapSection />}
               {activeTab === 'table' && <DataTable />}
               {activeTab === 'logs' && <LogsTable />}
+              {activeTab === 'revisitas' && <RevisitasTable />}
             </div>
           </>
         )}
