@@ -164,7 +164,7 @@ export const useAtividades = (): UseAtividadesReturn => {
       console.log(`Após deduplicação: ${atividades.length} registros únicos (${atividadesRaw.length - atividades.length} duplicatas removidas)`);
 
       // Insere em lotes de 100
-      const batchSize = 100;
+      const batchSize = 50;
       for (let i = 0; i < atividades.length; i += batchSize) {
         const batch = atividades.slice(i, i + batchSize);
 
