@@ -163,8 +163,8 @@ export const useAtividades = (): UseAtividadesReturn => {
       const atividades = deduplicateByCompositeKey(atividadesRaw);
       console.log(`Após deduplicação: ${atividades.length} registros únicos (${atividadesRaw.length - atividades.length} duplicatas removidas)`);
 
-      // Insere em lotes de 100
-      const batchSize = 50;
+      // Insere em lotes de **?
+      const batchSize = 200;
       for (let i = 0; i < atividades.length; i += batchSize) {
         const batch = atividades.slice(i, i + batchSize);
 
