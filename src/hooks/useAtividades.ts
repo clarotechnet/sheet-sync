@@ -163,28 +163,53 @@ export const useAtividades = (): UseAtividadesReturn => {
       const atividades = deduplicateByCompositeKey(atividadesRaw);
       console.log(`Após deduplicação: ${atividades.length} registros únicos (${atividadesRaw.length - atividades.length} duplicatas removidas)`);
 
-      // Insere em lotes de **?
-      const batchSize = 200;
+      // Lotes menores para evitar statement timeout do Supabase
+      const batchSize = 50;
+      const totalBatches = Math.ceil(atividades.length / batchSize);
+      let successCount = 0;
+      let failCount = 0;
+
       for (let i = 0; i < atividades.length; i += batchSize) {
+        const batchNum = Math.floor(i / batchSize) + 1;
         const batch = atividades.slice(i, i + batchSize);
 
-        // Upsert com chave composta de 4 campos
-        const { error: insertError } = await externalSupabase
-          .from('atividades')
-          .upsert(batch, {
-            onConflict: 'numero_os1,numero_os,contrato,data_atividade',
-            ignoreDuplicates: false
-          });
+        // Retry com backoff exponencial para erros de timeout
+        let success = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const { error: insertError } = await externalSupabase
+            .from('atividades')
+            .upsert(batch, {
+              onConflict: 'numero_os1,numero_os,contrato,data_atividade',
+              ignoreDuplicates: false
+            });
 
-        if (insertError) {
-          console.warn(`Erro no lote ${Math.floor(i / batchSize) + 1}:`, insertError.message);
-        } else {
-          console.log(`Lote ${Math.floor(i / batchSize) + 1} enviado com sucesso.`);
+          if (!insertError) {
+            console.log(`Lote ${batchNum}/${totalBatches} enviado com sucesso.`);
+            successCount++;
+            success = true;
+            break;
+          }
+
+          // Se for timeout, tenta novamente com delay maior
+          if (insertError.message.includes('timeout') || insertError.message.includes('Timeout')) {
+            console.warn(`Lote ${batchNum}/${totalBatches} timeout (tentativa ${attempt}/3), aguardando...`);
+            await new Promise(r => setTimeout(r, attempt * 2000)); // 2s, 4s, 6s
+          } else {
+            console.warn(`Erro no lote ${batchNum}/${totalBatches}:`, insertError.message);
+            break;
+          }
+        }
+
+        if (!success) failCount++;
+
+        // Pausa entre lotes para não sobrecarregar o banco
+        if (i + batchSize < atividades.length) {
+          await new Promise(r => setTimeout(r, 300));
         }
       }
 
       lastSyncedDataRef.current = currentRef;
-      console.log("Sincronização completa!");
+      console.log(`Sincronização completa! ${successCount} lotes OK, ${failCount} falharam.`);
     } catch (err) {
       console.error("Erro na sincronização:", err);
       setError(err instanceof Error ? err.message : 'Erro ao sincronizar');
@@ -293,17 +318,8 @@ export const useAtividades = (): UseAtividadesReturn => {
     console.log(`Substituindo dados: ${newData.length} registros do arquivo.`);
     setDataState(newData);
 
-    // if (!isInitialLoadRef.current) {
-    //   lastSyncedDataRef.current = '';
-    //   syncData(newData);
-    // } else {
-    //   console.log("Upload durante carregamento - sincronização será feita após carregar.");
-    //   setTimeout(() => {
-    //     lastSyncedDataRef.current = '';
-    //     syncData(newData);
-    //   }, 2500);
-    // } lastSyncedDataRef.current = '';
-    +    syncData(newData);
+    lastSyncedDataRef.current = '';
+    syncData(newData);
   }, [syncData]);
 
   return {
