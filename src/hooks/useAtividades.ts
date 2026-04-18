@@ -75,8 +75,44 @@ export const useAtividades = (): UseAtividadesReturn => {
     []
   );
 
-  // Envia um único lote com retry automático em caso de timeout
-  const sendBatchWithRetry = useCallback(async (
+  // Envia um lote INSERT (sem conflito) com retry
+  const sendInsertWithRetry = useCallback(async (
+    batch: Omit<Atividade, 'id' | 'created_at'>[],
+    batchNum: number,
+    totalBatches: number
+  ): Promise<boolean> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error: insertError } = await externalSupabase
+        .from('atividades')
+        .insert(batch);
+
+      if (!insertError) {
+        return true;
+      }
+
+      if (insertError.message.includes('timeout') || insertError.message.includes('Timeout')) {
+        console.warn(`Lote ${batchNum}/${totalBatches} INSERT timeout (tentativa ${attempt}/3)`);
+        await new Promise(r => setTimeout(r, attempt * 1500));
+      } else if (insertError.message.includes('duplicate') || insertError.message.includes('unique') || insertError.message.includes('violates')) {
+        // Algum dado não foi deletado — fallback para upsert nesse lote
+        console.warn(`Lote ${batchNum}/${totalBatches} duplicata, usando upsert...`);
+        const { error: upsertError } = await externalSupabase
+          .from('atividades')
+          .upsert(batch, {
+            onConflict: 'numero_os1,numero_os,contrato,data_atividade',
+            ignoreDuplicates: true
+          });
+        return !upsertError;
+      } else {
+        console.warn(`Erro INSERT lote ${batchNum}/${totalBatches}:`, insertError.message);
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
+  // Envia um lote UPSERT (com conflito) com retry — fallback lento
+  const sendUpsertWithRetry = useCallback(async (
     batch: Omit<Atividade, 'id' | 'created_at'>[],
     batchNum: number,
     totalBatches: number
@@ -94,13 +130,68 @@ export const useAtividades = (): UseAtividadesReturn => {
       }
 
       if (insertError.message.includes('timeout') || insertError.message.includes('Timeout')) {
-        console.warn(`Lote ${batchNum}/${totalBatches} timeout (tentativa ${attempt}/3), aguardando...`);
+        console.warn(`Lote ${batchNum}/${totalBatches} UPSERT timeout (tentativa ${attempt}/3)`);
         await new Promise(r => setTimeout(r, attempt * 2000));
       } else {
-        console.warn(`Erro no lote ${batchNum}/${totalBatches}:`, insertError.message);
+        console.warn(`Erro UPSERT lote ${batchNum}/${totalBatches}:`, insertError.message);
         return false;
       }
     }
+    return false;
+  }, []);
+
+  // Deletar dados existentes na faixa de datas (com batched fallback)
+  const deleteExistingData = useCallback(async (minDate: string, maxDate: string): Promise<boolean> => {
+    console.log(`Removendo dados de ${minDate} a ${maxDate}...`);
+
+    // Tenta deletar tudo de uma vez
+    const { error: deleteError } = await externalSupabase
+      .from('atividades')
+      .delete()
+      .gte('data_atividade', minDate)
+      .lte('data_atividade', maxDate);
+
+    if (!deleteError) {
+      console.log("Dados removidos com sucesso.");
+      return true;
+    }
+
+    // Se timeout, deleta em lotes por ID
+    if (deleteError.message.includes('timeout') || deleteError.message.includes('Timeout')) {
+      console.warn("DELETE timeout, deletando em lotes...");
+
+      let totalDeleted = 0;
+      while (true) {
+        // Busca IDs para deletar
+        const { data: rows, error: selectErr } = await externalSupabase
+          .from('atividades')
+          .select('id')
+          .gte('data_atividade', minDate)
+          .lte('data_atividade', maxDate)
+          .limit(2000);
+
+        if (selectErr || !rows || rows.length === 0) break;
+
+        const ids = rows.map((r: { id: number }) => r.id);
+        const { error: batchDelErr } = await externalSupabase
+          .from('atividades')
+          .delete()
+          .in('id', ids);
+
+        if (batchDelErr) {
+          console.warn("Erro ao deletar lote:", batchDelErr.message);
+          return false;
+        }
+
+        totalDeleted += ids.length;
+        console.log(`Deletados: ${totalDeleted} registros...`);
+      }
+
+      console.log(`Total deletado em lotes: ${totalDeleted}`);
+      return true;
+    }
+
+    console.warn("Erro ao deletar:", deleteError.message);
     return false;
   }, []);
 
@@ -121,20 +212,45 @@ export const useAtividades = (): UseAtividadesReturn => {
     console.log(`Sincronizando ${rows.length} registros com Supabase...`);
 
     try {
-      // Converte para formato do banco
       const atividadesRaw = rows.map(activityDataToAtividade);
-
-      // Deduplica pelo conjunto de 4 campos antes de enviar
       const atividades = deduplicateByCompositeKey(atividadesRaw);
       console.log(`Após deduplicação: ${atividades.length} registros únicos (${atividadesRaw.length - atividades.length} duplicatas removidas)`);
 
-      // Configuração otimizada: lotes de 75 com 3 requisições paralelas
-      const batchSize = 75;
-      const concurrency = 3;
+      // === ESTRATÉGIA: DELETE + INSERT (5-10x mais rápido que UPSERT) ===
+      // UPSERT verifica conflitos em cada linha contra o índice de 4 colunas → timeout em tabelas grandes.
+      // DELETE na faixa de datas + INSERT puro pula essa verificação → MUITO mais rápido.
+
+      // Identifica a faixa de datas no arquivo
+      const dates = atividades
+        .map(a => a.data_atividade)
+        .filter(Boolean)
+        .sort() as string[];
+
+      const minDate = dates[0];
+      const maxDate = dates[dates.length - 1];
+
+      let useInsertStrategy = false;
+
+      if (minDate && maxDate) {
+        console.log(`📋 Estratégia rápida: DELETE (${minDate} → ${maxDate}) + INSERT`);
+        useInsertStrategy = await deleteExistingData(minDate, maxDate);
+
+        if (!useInsertStrategy) {
+          console.warn("⚠️ DELETE falhou. Usando fallback: UPSERT sequencial (mais lento).");
+        }
+      } else {
+        console.warn("⚠️ Sem datas válidas. Usando fallback: UPSERT sequencial.");
+      }
+
+      // Configuração baseada na estratégia
+      const batchSize = useInsertStrategy ? 200 : 20;  // INSERT = rápido, UPSERT = precisa ser pequeno
+      const concurrency = useInsertStrategy ? 3 : 1;   // Paralelo só para INSERT (sem lock contention)
       const totalBatches = Math.ceil(atividades.length / batchSize);
       let successCount = 0;
       let failCount = 0;
       let completedCount = 0;
+
+      console.log(`🚀 ${useInsertStrategy ? 'INSERT' : 'UPSERT'}: ${atividades.length} registros em ${totalBatches} lotes (${batchSize}/lote, concorrência ${concurrency})`);
 
       // Divide em lotes
       const batches: Omit<Atividade, 'id' | 'created_at'>[][] = [];
@@ -142,12 +258,14 @@ export const useAtividades = (): UseAtividadesReturn => {
         batches.push(atividades.slice(i, i + batchSize));
       }
 
-      // Envia lotes em paralelo com limite de concorrência
+      // Envia lotes com concorrência controlada
       for (let i = 0; i < batches.length; i += concurrency) {
         const chunk = batches.slice(i, i + concurrency);
         const promises = chunk.map((batch, idx) => {
           const batchNum = i + idx + 1;
-          return sendBatchWithRetry(batch, batchNum, totalBatches);
+          return useInsertStrategy
+            ? sendInsertWithRetry(batch, batchNum, totalBatches)
+            : sendUpsertWithRetry(batch, batchNum, totalBatches);
         });
 
         const results = await Promise.all(promises);
@@ -158,21 +276,24 @@ export const useAtividades = (): UseAtividadesReturn => {
           else failCount++;
         }
 
-        // Log de progresso a cada grupo
+        // Log de progresso a cada 5% ou a cada grupo no fallback
         const pct = Math.round((completedCount / totalBatches) * 100);
-        console.log(`Progresso: ${pct}% (${completedCount}/${totalBatches} lotes)`);
+        const logInterval = useInsertStrategy ? Math.max(1, Math.floor(totalBatches / 20)) : 1;
+        if (completedCount % logInterval === 0 || completedCount === totalBatches) {
+          console.log(`Progresso: ${pct}% (${completedCount}/${totalBatches} lotes) | ${successCount} OK, ${failCount} falhas`);
+        }
       }
 
       lastSyncedDataRef.current = currentRef;
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      console.log(`Sincronização completa em ${elapsed}s! ${successCount} lotes OK, ${failCount} falharam.`);
+      console.log(`✅ Sincronização completa em ${elapsed}s! ${successCount}/${totalBatches} lotes OK.`);
     } catch (err) {
       console.error("Erro na sincronização:", err);
       setError(err instanceof Error ? err.message : 'Erro ao sincronizar');
     } finally {
       setIsSyncing(false);
     }
-  }, [deduplicateByCompositeKey, sendBatchWithRetry]);
+  }, [deduplicateByCompositeKey, sendInsertWithRetry, sendUpsertWithRetry, deleteExistingData]);
 
   const processPendingSync = useCallback(async () => {
     const pending = pendingSyncRef.current;
