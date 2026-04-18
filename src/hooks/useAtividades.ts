@@ -161,9 +161,12 @@ export const useAtividades = (): UseAtividadesReturn => {
         batches.push(atividades.slice(i, i + batchSize));
       }
 
-      // Envia lotes com concorrência controlada
+      // === PRIMEIRA PASSADA: envia todos os lotes ===
+      let failedBatches: { index: number; batch: Omit<Atividade, 'id' | 'created_at'>[] }[] = [];
+
       for (let i = 0; i < batches.length; i += concurrency) {
         const chunk = batches.slice(i, i + concurrency);
+        const chunkIndices = chunk.map((_, idx) => i + idx);
         const promises = chunk.map((batch, idx) => {
           const batchNum = i + idx + 1;
           return sendBatchWithRetry(batch, batchNum, totalBatches);
@@ -171,20 +174,25 @@ export const useAtividades = (): UseAtividadesReturn => {
 
         const results = await Promise.all(promises);
 
-        for (const ok of results) {
+        for (let j = 0; j < results.length; j++) {
           completedCount++;
-          if (ok) {
+          if (results[j]) {
             successCount++;
             consecutiveFails = 0;
           } else {
             failCount++;
             consecutiveFails++;
+            failedBatches.push({ index: chunkIndices[j], batch: chunk[j] });
           }
         }
 
-        // Aborta se 10 falhas consecutivas (DB provavelmente sobrecarregado)
+        // Aborta se 10 falhas consecutivas (DB sobrecarregado)
         if (consecutiveFails >= 10) {
-          console.error(`❌ 10 falhas consecutivas. Abortando. ${successCount}/${completedCount} lotes OK.`);
+          console.error(`❌ 10 falhas consecutivas. Pausando envio inicial.`);
+          // Adiciona os lotes restantes como "falhos" para tentar no retry
+          for (let k = i + concurrency; k < batches.length; k++) {
+            failedBatches.push({ index: k, batch: batches[k] });
+          }
           break;
         }
 
@@ -197,9 +205,49 @@ export const useAtividades = (): UseAtividadesReturn => {
         }
       }
 
+      // === REENVIO DOS LOTES QUE FALHARAM ===
+      const maxRetryRounds = 5;
+      let retryRound = 0;
+
+      while (failedBatches.length > 0 && retryRound < maxRetryRounds) {
+        retryRound++;
+        const waitSecs = retryRound * 5; // 5s, 10s, 15s, 20s, 25s entre rodadas
+        console.log(`🔁 Rodada ${retryRound}/${maxRetryRounds}: reenviando ${failedBatches.length} lotes que falharam (aguardando ${waitSecs}s)...`);
+        await new Promise(r => setTimeout(r, waitSecs * 1000));
+
+        const stillFailed: typeof failedBatches = [];
+        let roundSuccess = 0;
+
+        for (let i = 0; i < failedBatches.length; i += concurrency) {
+          const retryChunk = failedBatches.slice(i, i + concurrency);
+          const promises = retryChunk.map(({ index, batch }) =>
+            sendBatchWithRetry(batch, index + 1, totalBatches)
+          );
+
+          const results = await Promise.all(promises);
+
+          for (let j = 0; j < results.length; j++) {
+            if (results[j]) {
+              roundSuccess++;
+              successCount++;
+              failCount--;
+            } else {
+              stillFailed.push(retryChunk[j]);
+            }
+          }
+        }
+
+        console.log(`🔁 Rodada ${retryRound}: ${roundSuccess}/${failedBatches.length} recuperados, ${stillFailed.length} ainda pendentes.`);
+        failedBatches = stillFailed;
+      }
+
+      if (failedBatches.length > 0) {
+        console.warn(`⚠️ ${failedBatches.length} lotes não puderam ser enviados após ${maxRetryRounds} rodadas de reenvio.`);
+      }
+
       lastSyncedDataRef.current = currentRef;
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ Sincronização completa em ${elapsed}s! ${successCount}/${totalBatches} lotes OK.`);
+      console.log(`✅ Sincronização completa em ${elapsed}s! ${successCount}/${totalBatches} lotes OK${failedBatches.length > 0 ? `, ${failedBatches.length} falharam` : ''}.`);
     } catch (err) {
       console.error("Erro na sincronização:", err);
       setError(err instanceof Error ? err.message : 'Erro ao sincronizar');
