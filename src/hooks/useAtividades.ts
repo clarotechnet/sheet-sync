@@ -25,64 +25,9 @@ export const useAtividades = (): UseAtividadesReturn => {
   const lastSyncedDataRef = useRef<string>('');
   const pendingSyncRef = useRef<ActivityData[] | null>(null);
 
-  //   const fetchData = useCallback(async () => {
-  //     setIsLoading(true);
-  //     setError(null);
-  //     isInitialLoadRef.current = true;
-
-  //     try {
-  //       console.log("Buscando dados do Supabase...");
-
-  //       // Busca todas as atividades - usando paginação para evitar limite de 1000
-  //       let allData: Atividade[] = [];
-  //       let page = 0;
-  //       const pageSize = 1000;
-  //       let hasMore = true;
-
-  //       while (hasMore) {
-  //         const { data: atividades, error: fetchError } = await externalSupabase
-  //           .from('atividades')
-  //           .select('*')
-  //           .range(page * pageSize, (page + 1) * pageSize - 1)
-  //           .order('data_atividade', { ascending: false });
-
-  //         if (fetchError) {
-  //           throw new Error(fetchError.message);
-  //         }
-
-  //         if (atividades && atividades.length > 0) {
-  //           allData = [...allData, ...atividades];
-  //           page++;
-  //           hasMore = atividades.length === pageSize;
-  //         } else {
-  //           hasMore = false;
-  //         }
-  //       }
-
-  //       if (allData.length > 0) {
-  //         console.log(`Dados recebidos: ${allData.length} linhas.`);
-  //         const convertedData = allData.map(atividadeToActivityData) as ActivityData[];
-  //         setDataState(convertedData);
-  //         lastSyncedDataRef.current = JSON.stringify(convertedData);
-  //       } else {
-  //         console.log("Nenhum dado encontrado no Supabase.");
-  //         setDataState([]);
-  //       }
-  //     } catch (err) {
-  //       console.error("Erro ao buscar dados:", err);
-  //       setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
-  //     } finally {
-  //       setIsLoading(false);
-  //       setTimeout(() => {
-  //         isInitialLoadRef.current = false;
-  //         console.log("Sistema pronto para sincronização.");
-  //       }, 2000);
-  //     }
-  //   }, []);
-
-  // // Observação importante: para o UPSERT funcionar, o índice/constraint no banco precisa ser
-  //   // em cima das COLUNAS (numero_os1,numero_os,contrato,data_atividade) e essas colunas devem
-  //   // ser NOT NULL (com defaults). Índice com COALESCE causa 409 mesmo com upsert.
+  // Deduplicação: para o UPSERT funcionar, o índice/constraint no banco precisa ser
+  // em cima das COLUNAS (numero_os1,numero_os,contrato,data_atividade) e essas colunas devem
+  // ser NOT NULL (com defaults).
   const deduplicateByCompositeKey = useCallback(
     (atividades: Omit<Atividade, 'id' | 'created_at'>[]) => {
       // Remove espaços invisíveis (NBSP) e normaliza string
@@ -98,12 +43,9 @@ export const useAtividades = (): UseAtividadesReturn => {
       const normalizeDateKey = (v: unknown) => {
         if (!v) return '1900-01-01';
         const s = String(v).trim();
-        // ISO: 2026-01-26T00:00:00.000Z
         if (s.includes('T')) return s.split('T')[0];
-        // "2026-01-26 00:00:00"
         if (s.includes(' ')) return s.split(' ')[0];
         return s;
-        // return s; // já deve estar YYYY-MM-DD
       };
 
       const seen = new Map<string, Omit<Atividade, 'id' | 'created_at'>>();
@@ -116,7 +58,6 @@ export const useAtividades = (): UseAtividadesReturn => {
 
         const key = `${numero_os1}|${numero_os}|${contrato}|${data_atividade}`;
 
-        // também normaliza o que vai ser enviado pro banco
         const normalizedItem: Omit<Atividade, 'id' | 'created_at'> = {
           ...item,
           numero_os1,
@@ -134,13 +75,36 @@ export const useAtividades = (): UseAtividadesReturn => {
     []
   );
 
-  //  const syncData = useCallback(async (rows: ActivityData[]) => {
-  //   if (isInitialLoadRef.current) {
-  //     console.log("Sincronização bloqueada - carregamento inicial em andamento.");
-  //     return;
-  //   }
+  // Envia um único lote com retry automático em caso de timeout
+  const sendBatchWithRetry = useCallback(async (
+    batch: Omit<Atividade, 'id' | 'created_at'>[],
+    batchNum: number,
+    totalBatches: number
+  ): Promise<boolean> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error: insertError } = await externalSupabase
+        .from('atividades')
+        .upsert(batch, {
+          onConflict: 'numero_os1,numero_os,contrato,data_atividade',
+          ignoreDuplicates: false
+        });
+
+      if (!insertError) {
+        return true;
+      }
+
+      if (insertError.message.includes('timeout') || insertError.message.includes('Timeout')) {
+        console.warn(`Lote ${batchNum}/${totalBatches} timeout (tentativa ${attempt}/3), aguardando...`);
+        await new Promise(r => setTimeout(r, attempt * 2000));
+      } else {
+        console.warn(`Erro no lote ${batchNum}/${totalBatches}:`, insertError.message);
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
   const doSync = useCallback(async (rows: ActivityData[]) => {
-    // Comparação leve: usa length + timestamp ao invés de JSON.stringify de todos os dados
     const currentRef = String(rows.length);
     if (currentRef === lastSyncedDataRef.current && rows.length > 0) {
       console.log("Quantidade de dados idêntica — possível duplicata de sincronização, pulando.");
@@ -153,70 +117,62 @@ export const useAtividades = (): UseAtividadesReturn => {
     }
 
     setIsSyncing(true);
+    const startTime = performance.now();
     console.log(`Sincronizando ${rows.length} registros com Supabase...`);
 
     try {
       // Converte para formato do banco
       const atividadesRaw = rows.map(activityDataToAtividade);
 
-      // Deduplica pelo conjunto de 4 campos antes de enviar (evita erro "cannot affect row a second time")
+      // Deduplica pelo conjunto de 4 campos antes de enviar
       const atividades = deduplicateByCompositeKey(atividadesRaw);
       console.log(`Após deduplicação: ${atividades.length} registros únicos (${atividadesRaw.length - atividades.length} duplicatas removidas)`);
 
-      // Lotes menores para evitar statement timeout do Supabase
-      const batchSize = 50;
+      // Configuração otimizada: lotes de 75 com 3 requisições paralelas
+      const batchSize = 75;
+      const concurrency = 3;
       const totalBatches = Math.ceil(atividades.length / batchSize);
       let successCount = 0;
       let failCount = 0;
+      let completedCount = 0;
 
+      // Divide em lotes
+      const batches: Omit<Atividade, 'id' | 'created_at'>[][] = [];
       for (let i = 0; i < atividades.length; i += batchSize) {
-        const batchNum = Math.floor(i / batchSize) + 1;
-        const batch = atividades.slice(i, i + batchSize);
+        batches.push(atividades.slice(i, i + batchSize));
+      }
 
-        // Retry com backoff exponencial para erros de timeout
-        let success = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          const { error: insertError } = await externalSupabase
-            .from('atividades')
-            .upsert(batch, {
-              onConflict: 'numero_os1,numero_os,contrato,data_atividade',
-              ignoreDuplicates: false
-            });
+      // Envia lotes em paralelo com limite de concorrência
+      for (let i = 0; i < batches.length; i += concurrency) {
+        const chunk = batches.slice(i, i + concurrency);
+        const promises = chunk.map((batch, idx) => {
+          const batchNum = i + idx + 1;
+          return sendBatchWithRetry(batch, batchNum, totalBatches);
+        });
 
-          if (!insertError) {
-            console.log(`Lote ${batchNum}/${totalBatches} enviado com sucesso.`);
-            successCount++;
-            success = true;
-            break;
-          }
+        const results = await Promise.all(promises);
 
-          // Se for timeout, tenta novamente com delay maior
-          if (insertError.message.includes('timeout') || insertError.message.includes('Timeout')) {
-            console.warn(`Lote ${batchNum}/${totalBatches} timeout (tentativa ${attempt}/3), aguardando...`);
-            await new Promise(r => setTimeout(r, attempt * 2000)); // 2s, 4s, 6s
-          } else {
-            console.warn(`Erro no lote ${batchNum}/${totalBatches}:`, insertError.message);
-            break;
-          }
+        for (const ok of results) {
+          completedCount++;
+          if (ok) successCount++;
+          else failCount++;
         }
 
-        if (!success) failCount++;
-
-        // Pausa entre lotes para não sobrecarregar o banco
-        if (i + batchSize < atividades.length) {
-          await new Promise(r => setTimeout(r, 300));
-        }
+        // Log de progresso a cada grupo
+        const pct = Math.round((completedCount / totalBatches) * 100);
+        console.log(`Progresso: ${pct}% (${completedCount}/${totalBatches} lotes)`);
       }
 
       lastSyncedDataRef.current = currentRef;
-      console.log(`Sincronização completa! ${successCount} lotes OK, ${failCount} falharam.`);
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      console.log(`Sincronização completa em ${elapsed}s! ${successCount} lotes OK, ${failCount} falharam.`);
     } catch (err) {
       console.error("Erro na sincronização:", err);
       setError(err instanceof Error ? err.message : 'Erro ao sincronizar');
     } finally {
       setIsSyncing(false);
     }
-  }, [deduplicateByCompositeKey]);
+  }, [deduplicateByCompositeKey, sendBatchWithRetry]);
 
   const processPendingSync = useCallback(async () => {
     const pending = pendingSyncRef.current;
