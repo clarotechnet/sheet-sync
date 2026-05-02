@@ -13,6 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import {
   Loader2,
@@ -165,6 +172,43 @@ export default function Admin() {
       setApprovingId(null);
     }
   };
+  const changeRole = async (userId: string, newRole: string) => {
+    if (userId === user?.id) {
+      toast({
+        title: 'Ação não permitida',
+        description: 'Você não pode alterar seu próprio tipo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setApprovingId(userId);
+    try {
+      const { error } = await externalSupabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Tipo atualizado',
+        description: `Usuário agora é ${newRole}.`,
+      });
+
+      fetchUsers();
+    } catch (error) {
+      console.error('Erro ao alterar tipo:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível alterar o tipo do usuário.',
+        variant: 'destructive',
+      });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+  
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
@@ -345,11 +389,23 @@ export default function Admin() {
                     </TableCell>
                     <TableCell>{u.display_name || '-'}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={u.role === 'admin' ? 'default' : 'secondary'}
-                      >
-                        {u.role}
-                      </Badge>
+                       {u.id !== user?.id ? (
+                        <Select
+                          value={u.role}
+                          onValueChange={(v) => changeRole(u.id, v)}
+                          disabled={approvingId === u.id}
+                        >
+                          <SelectTrigger className="w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">admin</SelectItem>
+                            <SelectItem value="user">user</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="default">{u.role}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {u.approved ? (
