@@ -529,6 +529,28 @@
     transition: transform 0.3s ease;
   }
 
+  .multi-select-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: hsl(var(--destructive));
+    color: white;
+    font-size: 0.65rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 4px;
+    transition: all 0.2s ease;
+    line-height: 1;
+  }
+
+  .multi-select-clear:hover {
+    background: hsl(0 100% 40%);
+    transform: scale(1.15);
+  }
+
   /* Tables */
   .table-container {
     background: hsl(var(--surface));
