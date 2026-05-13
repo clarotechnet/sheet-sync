@@ -47,6 +47,8 @@ const Comissionamento: React.FC = () => {
         <ComissionamentoFilters
           filters={hook.filters}
           setFilters={hook.setFilters}
+          uniqueProposta={hook.uniqueProposta}
+          uniqueTipoVenda={hook.uniqueTipoVenda}
           clearFilters={hook.clearFilters}
           uniqueCidades={hook.uniqueCidades}
           uniqueNomes={hook.uniqueNomes}
@@ -64,25 +66,25 @@ const Comissionamento: React.FC = () => {
 
         {hasData && (
           <>
-          
+
 
             <TabNavigation tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
             <div className="tab-content">
               {activeTab === 'kpis' && <ComissionamentoKPIs kpis={hook.kpis} />}
               {activeTab === 'charts' && (
-                <ComissionamentoCharts 
-                  chartData={hook.chartData} 
-                  ranking={hook.ranking} 
+                <ComissionamentoCharts
+                  chartData={hook.chartData}
+                  ranking={hook.ranking}
                 />
               )}
-               {activeTab === 'frentes' && (
+              {activeTab === 'frentes' && (
                 <ComissionamentoFrentes
                   frentesData={hook.frentesData}
                   selectedFrente={hook.filters.frente[0] || ''}
                 />
               )}
-               {activeTab === 'table' && (
+              {activeTab === 'table' && (
                 <ComissionamentoTable
                   data={hook.data}
                   onUpdate={hook.updateRecord}
@@ -91,7 +93,7 @@ const Comissionamento: React.FC = () => {
                   uniqueCidades={hook.uniqueCidades}
                 />
               )}
-               {activeTab === 'valores' && (
+              {activeTab === 'valores' && (
                 <ComissionamentoValores data={hook.data} />
               )}
             </div>
@@ -101,7 +103,7 @@ const Comissionamento: React.FC = () => {
         {!hook.isLoading && !hasData && !hook.error && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
-                Importe um arquivo Excel ou preencha o formulário para começar.
+              Importe um arquivo Excel ou preencha o formulário para começar.
             </p>
           </div>
         )}

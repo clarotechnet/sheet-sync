@@ -72,6 +72,8 @@ export function useComissionamento() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ComissionamentoFilters>({
+    proposta: [],
+    tipo_venda: [],
     cidade: [],
     dataInicio: '',
     dataFim: '',
@@ -80,7 +82,7 @@ export function useComissionamento() {
     frente: [],
     contrato: [],
     dataExecInicio: '',
-    dataExecFim: ''
+    dataExecFim: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -117,13 +119,13 @@ export function useComissionamento() {
 
       if (!frentesError && frentes) {
         setTecnicosFrente(frentes as TecnicoFrente[]);
-        
+
         // Map frente to comissionamento data by nome
         const frenteMap = new Map<string, string>();
         (frentes as TecnicoFrente[]).forEach(tf => {
           frenteMap.set(tf.nome.trim().toUpperCase(), tf.frente);
         });
-        
+
         allData = allData.map(row => ({
           ...row,
           frente: frenteMap.get((row.nome || '').trim().toUpperCase()) || row.frente || null
@@ -269,13 +271,13 @@ export function useComissionamento() {
         return d && d <= filters.dataFim;
       });
     }
-     if (filters.status.length > 0) {
+    if (filters.status.length > 0) {
       result = result.filter(r => filters.status.includes(r.status || ''));
     }
-     if (filters.nome.length > 0) {
+    if (filters.nome.length > 0) {
       result = result.filter(r => filters.nome.some(n => (r.nome || '').toLowerCase().includes(n.toLowerCase())));
     }
-     if (filters.frente.length > 0) {
+    if (filters.frente.length > 0) {
       result = result.filter(r => filters.frente.includes(r.frente || ''));
     }
 
@@ -309,6 +311,16 @@ export function useComissionamento() {
     [tecnicosFrente]
   );
 
+  const uniqueProposta = useMemo(() =>
+    [...new Set(data.map(r => r.proposta).filter(Boolean))].sort() as string[],
+    [data]
+  );
+
+  const uniqueTipoVenda = useMemo(() =>
+    [...new Set(data.map(r => r.tipo_venda).filter(Boolean))].sort() as string[],
+    [data]
+  );
+
   // KPIs
   const kpis = useMemo(() => ({
     confirmadas: filteredData.filter(r => r.status === 'CONFIRMADA').length,
@@ -333,7 +345,7 @@ export function useComissionamento() {
     return Object.values(map).sort((a, b) => (b.pendente + b.confirmada + b.cancelada) - (a.pendente + a.confirmada + a.cancelada));
   }, [filteredData]);
 
-  
+
   // Ranking — conta contratos únicos por (contrato+data) e separa totais por status
   const ranking = useMemo(() => {
     const map: Record<string, {
@@ -384,7 +396,7 @@ export function useComissionamento() {
   const frentesData = useMemo((): FrenteKPIData[] => {
     const frenteGroups = new Map<string, { tecnicos: Set<string>; tecComVenda: Set<string>; qtdConfirmada: number; totalGeral: number }>();
 
-       // Initialize frentes from tecnicos_frentes, filtering by city if selected
+    // Initialize frentes from tecnicos_frentes, filtering by city if selected
     const filteredTecnicos = filters.cidade.length > 0
       ? tecnicosFrente.filter(tf => filters.cidade.some(c => (tf.cidade || '').toLowerCase().includes(c.toLowerCase())))
       : tecnicosFrente;
@@ -414,7 +426,7 @@ export function useComissionamento() {
       const totalTec = g.tecnicos.size;
       const tecAdherente = g.tecComVenda.size;
       const tecNaoVenderam = [...g.tecnicos].filter(n => !g.tecComVenda.has(n));
-      
+
 
       const nomeMap = new Map<string, string>();
       tecnicosFrente.forEach(tf => nomeMap.set(tf.nome.trim().toUpperCase(), tf.nome));
@@ -430,9 +442,9 @@ export function useComissionamento() {
         tecNaoVenderam: tecNaoVenderam.map(n => nomeMap.get(n) || n)
       };
     }).sort((a, b) => b.qtdConsultivo - a.qtdConsultivo);
-}, [filteredData, tecnicosFrente, filters.cidade]);
+  }, [filteredData, tecnicosFrente, filters.cidade]);
 
-   const submitManualEntry = useCallback(async (formData: Record<string, any>) => {
+  const submitManualEntry = useCallback(async (formData: Record<string, any>) => {
     // Enrich with frente
     const { data: frentes } = await externalSupabase.from('tecnicos_frentes').select('nome, frente');
     let frente: string | null = null;
@@ -468,7 +480,7 @@ export function useComissionamento() {
 
     await fetchData();
   }, [fetchData]);
-const updateRecord = useCallback(async (id: string, updates: Partial<ComissionamentoData>) => {
+  const updateRecord = useCallback(async (id: string, updates: Partial<ComissionamentoData>) => {
     const { error: updateError } = await externalSupabase
       .from('comissionamento')
       .update(updates)
@@ -476,7 +488,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     if (updateError) throw updateError;
     await fetchData();
   }, [fetchData]);
-   const deleteRecord = useCallback(async (id: string) => {
+  const deleteRecord = useCallback(async (id: string) => {
     const { error: deleteError } = await externalSupabase
       .from('comissionamento')
       .delete()
@@ -493,7 +505,7 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     error,
     filters,
     setFilters: (f: Partial<ComissionamentoFilters>) => setFilters(prev => ({ ...prev, ...f })),
-    clearFilters: () => setFilters({ cidade: [], dataInicio: '', dataFim: '', status: [], nome: [], frente: [], contrato: [], dataExecInicio: '', dataExecFim: '' }),
+    clearFilters: () => setFilters({ cidade: [], dataInicio: '', dataFim: '', status: [], nome: [], frente: [], proposta: [], tipo_venda: [], contrato: [], dataExecInicio: '', dataExecFim: '' }),
     fetchData,
     importExcel,
     submitManualEntry,
@@ -506,6 +518,8 @@ const updateRecord = useCallback(async (id: string, updates: Partial<Comissionam
     chartData,
     ranking,
     frentesData,
-    tecnicosFrente
+    tecnicosFrente,
+    uniqueProposta,
+    uniqueTipoVenda
   };
 }

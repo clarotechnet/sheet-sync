@@ -13,10 +13,18 @@ interface MultiSelectProps {
   onChange: (selected: string[]) => void;
 }
 
-const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onChange }) => {
+const MultiSelect: React.FC<MultiSelectProps> = ({
+  label,
+  options = [],
+  selected = [],
+  onChange
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+
+  const safeOptions = Array.isArray(options) ? options : [];
+  const safeSelected = Array.isArray(selected) ? selected : [];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -24,36 +32,40 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
         setIsOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const toggleOption = (option: string) => {
-    if (selected.includes(option)) {
-      onChange(selected.filter(s => s !== option));
+    if (safeSelected.includes(option)) {
+      onChange(safeSelected.filter(s => s !== option));
     } else {
-      onChange([...selected, option]);
+      onChange([...safeSelected, option]);
     }
   };
 
-  const filteredOptions = options.filter(opt =>
-    opt.toLowerCase().includes(search.toLowerCase())
+  const filteredOptions = safeOptions.filter(opt =>
+    String(opt).toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-   <div className="form-group" ref={ref} style={{ zIndex: isOpen ? 50 : 1, position: 'relative' }}>
+    <div className="form-group" ref={ref} style={{ zIndex: isOpen ? 50 : 1, position: 'relative' }}>
       <Label className="form-label">{label}</Label>
+
       <div className="multi-select">
         <div
           className={`multi-select-button ${isOpen ? 'open' : ''}`}
           onClick={() => setIsOpen(!isOpen)}
         >
           <span className="multi-select-text">
-            {selected.length === 0 ? 'Todos' : `${selected.length} selecionado(s)`}
+            {safeSelected.length === 0 ? 'Todos' : `${safeSelected.length} selecionado(s)`}
           </span>
-          {selected.length > 0 && (
-            <span className="selected-count">{selected.length}</span>
+
+          {safeSelected.length > 0 && (
+            <span className="selected-count">{safeSelected.length}</span>
           )}
+
           <span className={`multi-select-arrow ${isOpen ? 'rotate-180' : ''}`}>▼</span>
         </div>
 
@@ -67,18 +79,22 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
               onChange={(e) => setSearch(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
+
             {filteredOptions.map(option => (
               <div
                 key={option}
                 className="multi-select-option"
                 onClick={() => toggleOption(option)}
               >
-                <div className={`multi-select-checkbox ${selected.includes(option) ? 'checked' : ''}`} />
+                <div className={`multi-select-checkbox ${safeSelected.includes(option) ? 'checked' : ''}`} />
                 <span>{option}</span>
               </div>
             ))}
+
             {filteredOptions.length === 0 && (
-              <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado</div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                Nenhum resultado
+              </div>
             )}
           </div>
         )}
@@ -92,9 +108,12 @@ interface Props {
   filters: FiltersType;
   setFilters: (f: Partial<FiltersType>) => void;
   clearFilters: () => void;
+  uniqueProposta: string[];
+  uniqueTipoVenda: string[];
   uniqueCidades: string[];
   uniqueNomes: string[];
   uniqueFrente: string[];
+
   totalFiltered: number;
   onImport: (file: File) => Promise<number>;
   onManualSubmit: (data: Record<string, any>) => Promise<void>;
@@ -103,11 +122,11 @@ interface Props {
 }
 
 export const ComissionamentoFilters: React.FC<Props> = ({
-  filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, totalFiltered,
-    onImport, onManualSubmit, isLoading, filteredData
+  filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, uniqueProposta, uniqueTipoVenda, totalFiltered,
+  onImport, onManualSubmit, isLoading, filteredData
 }) => {
- const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.dataExecInicio || filters.dataExecFim;
-    const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.dataExecInicio || filters.dataExecFim;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
   const uniqueContratos = React.useMemo(() => {
@@ -117,12 +136,12 @@ export const ComissionamentoFilters: React.FC<Props> = ({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      try { await onImport(file); } catch {}
+      try { await onImport(file); } catch { }
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-    const handleExportExcel = () => {
+  const handleExportExcel = () => {
     const fmtDate = (val: string | null) => {
       if (!val) return '';
       const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -146,13 +165,13 @@ export const ComissionamentoFilters: React.FC<Props> = ({
     XLSX.writeFile(wb, 'comissionamento.xlsx');
   };
 
-const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
+  const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
 
   return (
     <div className="card">
       <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
         <h3 className="text-lg font-bold text-foreground">Filtros</h3>
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
           <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
           <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="gap-1">
             <Upload className="w-4 h-4" /> Importar
@@ -184,11 +203,26 @@ const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
 
 
       <div className="filter-section">
-       <MultiSelect
+        <MultiSelect
           label="Frente"
           options={uniqueFrente}
           selected={filters.frente}
           onChange={(val) => setFilters({ frente: val })}
+        />
+
+        <MultiSelect
+          label="Proposta"
+          options={uniqueProposta}
+          selected={filters.proposta}
+          onChange={(val) => setFilters({ proposta: val })}
+        />
+
+
+        <MultiSelect
+          label="Tipo de Venda"
+          options={uniqueTipoVenda}
+          selected={filters.tipo_venda}
+          onChange={(val) => setFilters({ tipo_venda: val })}
         />
 
         <MultiSelect
@@ -198,7 +232,7 @@ const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
           onChange={(val) => setFilters({ cidade: val })}
         />
 
-     {/* Data Inicial */}
+        {/* Data Inicial */}
         <div className="form-group">
           <Label className="form-label">Data Inicial Agendamento</Label>
           <input
@@ -220,13 +254,13 @@ const statusOptions = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
           />
         </div>
 
-     <MultiSelect
+        <MultiSelect
           label="Status"
           options={statusOptions}
           selected={filters.status}
           onChange={(val) => setFilters({ status: val })}
         />
-<MultiSelect
+        <MultiSelect
           label="Técnico"
           options={uniqueNomes}
           selected={filters.nome}

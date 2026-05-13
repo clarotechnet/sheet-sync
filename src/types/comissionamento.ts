@@ -23,12 +23,14 @@ export interface ComissionamentoData {
 }
 
 export interface ComissionamentoFilters {
+  proposta: string[];
+  tipo_venda: string[];
   cidade: string[];
   dataInicio: string;
   dataFim: string;
   status: string[];
   nome: string[];
-  frente: string[]  ;
+  frente: string[];
   contrato: string[];
   dataExecInicio: string;
   dataExecFim: string;
@@ -68,7 +70,7 @@ export interface TecnicoFrente {
 
 export interface FrenteKPIData {
   frente: string;
-  qtdConsultivo: number; 
+  qtdConsultivo: number;
   totalGeral: number;          // total contracts (all statuses)
   pctConfirmada: number;       // % confirmed over total      // confirmed contracts count
   totalTecnicos: number;       // total technicians in frente
