@@ -292,6 +292,13 @@ export function useComissionamento() {
       result = result.filter(r => r.data_exec && r.data_exec <= filters.dataExecFim);
     }
 
+    if (filters.proposta.length > 0) {
+      result = result.filter(r => filters.proposta.includes(r.proposta || ''));
+    }
+
+    if (filters.tipo_venda.length > 0) {
+      result = result.filter(r => filters.tipo_venda.includes(r.tipo_venda || ''));
+    }
 
     return result;
   }, [data, filters]);

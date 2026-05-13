@@ -66,6 +66,19 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
             <span className="selected-count">{safeSelected.length}</span>
           )}
 
+          {safeSelected.length > 0 && (
+            <span
+              className="multi-select-clear"
+              title="Limpar"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange([]);
+              }}
+            >
+              ✕
+            </span>
+          )}
+
           <span className={`multi-select-arrow ${isOpen ? 'rotate-180' : ''}`}>▼</span>
         </div>
 
@@ -125,7 +138,7 @@ export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, uniqueFrente, uniqueProposta, uniqueTipoVenda, totalFiltered,
   onImport, onManualSubmit, isLoading, filteredData
 }) => {
-  const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.dataExecInicio || filters.dataExecFim;
+  const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.proposta.length > 0 || filters.tipo_venda.length > 0 || filters.dataExecInicio || filters.dataExecFim;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
 
