@@ -138,10 +138,15 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
                 <Input placeholder="Ex: WIFI MESH" value={form.tipo_venda} onChange={e => set('tipo_venda', e.target.value)} />
               </div>
 
-              {/* PROPOSTA - free text */}
+              {/* PROPOSTA - select fixo */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium">Proposta *</Label>
-                <Input placeholder="Ex: CONEX, VNA" value={form.proposta} onChange={e => set('proposta', e.target.value)} />
+                <select className={selectClass} value={form.proposta} onChange={e => set('proposta', e.target.value)}>
+                  <option value="">Selecione...</option>
+                  <option value="VNA">VNA</option>
+                  <option value="NETSALES">NETSALES</option>
+                  <option value="CONEXÃO">CONEXÃO</option>
+                </select>
               </div>
 
               {/* DATA ENVIO GRUPO */}
