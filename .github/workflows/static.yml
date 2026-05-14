@@ -25,7 +25,7 @@ jobs:
       - name: Gerar build
         run: npm run build
 
-      - name: Enviar dist para Hostinger
+       - name: Enviar dist para Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.HOSTINGER_FTP_SERVER }}
@@ -33,4 +33,5 @@ jobs:
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           port: 21
           local-dir: ./dist/
-          server-dir: /public_html/
+          server-dir: public_html/
+          dangerous-clean-slate: true
