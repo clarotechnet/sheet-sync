@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import ModuleSelection from "./pages/ModuleSelection";
 import Comissionamento from "./pages/Comissionamento";
@@ -26,6 +27,7 @@ const App = () => (
         <HashRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/selecao"
               element={

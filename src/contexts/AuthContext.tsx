@@ -1,4 +1,4 @@
-﻿﻿import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 
@@ -23,6 +23,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ ok: boolean; message: string; reason?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ ok: boolean; message: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -195,6 +196,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await externalSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}${window.location.pathname}#/reset-password`,
+      });
+      if (error) throw error;
+      return {
+        ok: true,
+        message: 'Email de recuperação enviado! Verifique sua caixa de entrada.',
+      };
+    } catch (error: any) {
+      console.error('Erro ao enviar email de recuperação:', error);
+      return {
+        ok: false,
+        message: error.message || 'Erro ao enviar email de recuperação.',
+      };
+    }
+  };
+
   const isAdmin = profile?.role === 'admin';
   const isApproved = profile?.approved ?? false;
 
@@ -211,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signOut,
         refreshProfile,
+        resetPassword,
       }}
     >
       {children}
