@@ -25,6 +25,9 @@ jobs:
       - name: Gerar build
         run: npm run build
 
+      - name: Criar arquivo teste
+        run: echo "deploy teste $(date)" > dist/deploy-teste.txt
+
       - name: Enviar dist para Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
@@ -34,4 +37,3 @@ jobs:
           port: 21
           local-dir: ./dist/
           server-dir: public_html/
-          dangerous-clean-slate: true
