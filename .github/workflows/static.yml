@@ -36,5 +36,4 @@ jobs:
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
           port: 21
           local-dir: ./dist/
-          server-dir: ./sistema
-
+server-dir: /public_html/sistema/
