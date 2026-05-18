@@ -10,6 +10,7 @@ jobs:
     name: Build e enviar para Hostinger
     runs-on: ubuntu-latest
 
+
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
