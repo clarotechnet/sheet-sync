@@ -39,19 +39,21 @@ function RecoveryRedirect() {
 }
 
 const App = () => {
-  // Before rendering HashRouter, detect if the URL hash contains
-  // Supabase auth fragments (access_token, error, etc.).
-  // Supabase puts these directly in the hash (#access_token=... or #error=...),
-  // which conflicts with HashRouter that uses hash for routing (#/login, #/reset-password).
-  // We intercept these BEFORE HashRouter mounts.
+
   const [ready, setReady] = useState(() => {
     const hash = window.location.hash;
-    if (!hash || hash.startsWith("#/")) return true; // Normal route, proceed
 
-    // Supabase error callback (e.g. expired token)
-    if (hash.includes("error=")) return false;
-    // Supabase success callback (recovery tokens)
-    if (hash.includes("access_token")) return false;
+    if (
+      hash.includes("error=") ||
+      hash.includes("error_code=") ||
+      hash.includes("access_denied") ||
+      hash.includes("otp_expired") ||
+      hash.includes("access_token") ||
+      hash.includes("refresh_token") ||
+      hash.includes("type=recovery")
+    ) {
+      return false;
+    }
 
     return true;
   });
