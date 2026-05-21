@@ -14,34 +14,30 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Supabase automatically picks up the recovery token from the URL
-    // and establishes a session. We just need to wait for it.
+    // Check if there's a valid session (established by Supabase after recovery token)
+    const checkSession = async () => {
+      const { data: { session } } = await externalSupabase.auth.getSession();
+      setHasSession(!!session);
+      setChecking(false);
+    };
+
+    // Also listen for auth changes in case session arrives after mount
     const { data: { subscription } } = externalSupabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'PASSWORD_RECOVERY' || (session && event === 'SIGNED_IN')) {
-          setSessionReady(true);
+        if (event === 'PASSWORD_RECOVERY' || session) {
+          setHasSession(true);
           setChecking(false);
         }
       }
     );
 
-    // Fallback: check if there's already a session (e.g. token was already processed)
-    const timeout = setTimeout(async () => {
-      const { data: { session } } = await externalSupabase.auth.getSession();
-      if (session) {
-        setSessionReady(true);
-      }
-      setChecking(false);
-    }, 3000);
+    checkSession();
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -88,13 +84,11 @@ export default function ResetPassword() {
         description: 'Sua senha foi redefinida com sucesso.',
       });
 
-      // Sign out and redirect to login after a short delay
       setTimeout(async () => {
         await externalSupabase.auth.signOut();
         navigate('/login', { replace: true });
       }, 2500);
     } catch (error: any) {
-      console.error('Erro ao redefinir senha:', error);
       toast({
         title: 'Erro',
         description: error.message || 'Erro ao redefinir a senha.',
@@ -105,20 +99,18 @@ export default function ResetPassword() {
     }
   };
 
-  // Loading state while waiting for session
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Verificando link de recuperação...</p>
+          <p className="text-muted-foreground">Verificando sessão...</p>
         </div>
       </div>
     );
   }
 
-  // No valid session / token
-  if (!sessionReady) {
+  if (!hasSession) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-border/50 shadow-glow">
@@ -143,7 +135,6 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img
