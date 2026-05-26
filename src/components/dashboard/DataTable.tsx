@@ -1,17 +1,18 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
-import { Table, ArrowUpAZ, ArrowDownAZ, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Table, ArrowUpAZ, ArrowDownAZ, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import { brToIsoDate } from '@/types/atividade';
 import { Button } from '@/components/ui/button';
 import { getActivityStatus } from '@/utils/activityHelpers';
+import { EditRowDialog } from './EditRowDialog';
 
 type SortOrder = 'none' | 'asc' | 'desc';
 type SortField = 'recurso' | 'tipoAtividade' | 'contrato' | 'codBaixa' | 'status' | 'data' | 'intervalo';
 
 const ITEMS_PER_PAGE = 100;
-const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva','Cancelada'] as const;
+const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva', 'Cancelada'] as const;
 
 export const DataTable: React.FC = () => {
   const { filteredData, refreshData } = useDashboard();
@@ -24,6 +25,9 @@ export const DataTable: React.FC = () => {
   const [editRowKey, setEditRowKey] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<{ status: string; cod: string } | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogItem, setDialogItem] = useState<Record<string, string | undefined> | null>(null);
 
   // --- helpers para lidar com nomes de colunas (com/sem acento, com encoding diferente) ---
   const pick = (item: Record<string, string | undefined>, keys: string[]) => {
@@ -58,7 +62,7 @@ export const DataTable: React.FC = () => {
       return (numeric >= 409 || statusOS === 'executada') ? 'Produtiva' : 'Improdutiva';
     }
 
-     if (statusOS === 'executada') return 'Produtiva';
+    if (statusOS === 'executada') return 'Produtiva';
 
     // sem código: usa seu helper
     if (draft?.status) return draft.status;
@@ -72,7 +76,7 @@ export const DataTable: React.FC = () => {
       case 'Improdutiva':
         return '#FF0000';
       case 'Cancelado':
-        return '#8B4513';  
+        return '#8B4513';
       default:
         return '#f5a623';
     }
@@ -146,7 +150,7 @@ export const DataTable: React.FC = () => {
     refreshData?.();
   };
 
- const getFieldValue = (item: Record<string, string | undefined>, field: SortField): string => {
+  const getFieldValue = (item: Record<string, string | undefined>, field: SortField): string => {
     switch (field) {
       case 'recurso': return (item.Recurso || '').toLowerCase();
       case 'tipoAtividade': return (item['Tipo de Atividade'] || '').toLowerCase();
@@ -156,7 +160,7 @@ export const DataTable: React.FC = () => {
       case 'data': return (item.Data || '').toLowerCase();
       case 'intervalo': return (item['Intervalo de Tempo'] || '').toLowerCase();
     }
-  }; 
+  };
   const sortedData = useMemo(() => {
     if (sortOrder === 'none') return filteredData;
 
@@ -167,7 +171,7 @@ export const DataTable: React.FC = () => {
         ? valA.localeCompare(valB, 'pt-BR')
         : valB.localeCompare(valA, 'pt-BR');
     });
- }, [filteredData, sortOrder, sortField]);
+  }, [filteredData, sortOrder, sortField]);
 
   // paginação
   useEffect(() => {
@@ -261,8 +265,9 @@ export const DataTable: React.FC = () => {
         <table className="data-table">
           <thead>
             <tr>
+              {isAdmin && <th style={{ width: 48 }}></th>}
               <th
-               onClick={() => toggleSort('recurso')}
+                onClick={() => toggleSort('recurso')}
                 className={sortableThClass}
                 title="Ordenar"
               >
@@ -271,7 +276,7 @@ export const DataTable: React.FC = () => {
                   {renderSortIcon('recurso')}
                 </div>
               </th>
-               <th onClick={() => toggleSort('tipoAtividade')} className={sortableThClass} title="Ordenar">
+              <th onClick={() => toggleSort('tipoAtividade')} className={sortableThClass} title="Ordenar">
                 <div className="flex items-center gap-2">Tipo de Atividade {renderSortIcon('tipoAtividade')}</div>
               </th>
               <th onClick={() => toggleSort('contrato')} className={sortableThClass} title="Ordenar">
@@ -295,7 +300,7 @@ export const DataTable: React.FC = () => {
           <tbody>
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                <td colSpan={isAdmin ? 8 : 7} className="text-center py-12 text-muted-foreground">
                   Nenhum dado para exibir
                 </td>
               </tr>
@@ -315,6 +320,18 @@ export const DataTable: React.FC = () => {
 
                 return (
                   <tr key={rowKey}>
+                    {isAdmin && (
+                      <td style={{ width: 48 }}>
+                        <button
+                          type="button"
+                          onClick={() => { setDialogItem(item); setDialogOpen(true); }}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                          title="Editar linha"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
                     <td>{item.Recurso || 'N/A'}</td>
                     <td>{item['Tipo de Atividade'] || 'N/A'}</td>
                     <td>{item.Contrato || item.contrato || 'N/A'}</td>
@@ -452,6 +469,12 @@ export const DataTable: React.FC = () => {
           </div>
         </div>
       )}
+      <EditRowDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        item={dialogItem}
+        onSaved={() => refreshData?.()}
+      />
     </div>
   );
 };
