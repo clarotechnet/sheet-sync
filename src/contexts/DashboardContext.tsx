@@ -3,6 +3,7 @@ import { ActivityData, FilterState } from '@/types/activity';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { filterExcludedServiceTypes, parseBRDate, extractDateFromInterval, getActivityStatus } from '@/utils/activityHelpers';
 import { useAtividades } from '@/hooks/useAtividades';
+import { getFrenteForTipo } from '@/config/frentesMap';
 
 interface DashboardContextType {
   allData: ActivityData[];
@@ -51,12 +52,15 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         result = result.filter(item => filters.technicians.includes(item.Recurso || ''));
       }
 
-      // Filtro por tipo de atividade
+      // Filtro por tipo de atividade (frentes)
       if (filters.activityTypes.length > 0) {
-        result = result.filter(item => filters.activityTypes.includes(item['Tipo de Atividade'] || ''));
+        result = result.filter(item => {
+          const frente = getFrenteForTipo(item['Tipo de Atividade']);
+          return frente ? filters.activityTypes.includes(frente) : false;
+        });
       }
 
-       // Filtro por cidade
+      // Filtro por cidade
       if (filters.cities.length > 0) {
         result = result.filter(item => {
           const cidade = item.Cidade || item.cidade || '';
@@ -65,7 +69,7 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
 
       // Filtro por produtividade
-       // Filtro por produtividade (multi-select)
+      // Filtro por produtividade (multi-select)
       if (filters.productivityFilters.length > 0) {
         const statusMap: Record<string, string> = {
           productive: 'Produtiva',
@@ -84,8 +88,8 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       // Filtro por texto
       if (filters.searchText) {
         const searchLower = filters.searchText.toLowerCase();
-        result = result.filter(item => 
-          Object.values(item).some(val => 
+        result = result.filter(item =>
+          Object.values(item).some(val =>
             String(val || '').toLowerCase().includes(searchLower)
           )
         );
@@ -99,24 +103,24 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         result = result.filter(item => {
           // Tenta pegar data de várias colunas possíveis
           let itemDate: Date | null = null;
-          
+
           // Primeiro tenta "Intervalo de Tempo" que é comum neste sistema
           if (item['Intervalo de Tempo']) {
             itemDate = extractDateFromInterval(item['Intervalo de Tempo']);
           }
-          
+
           // Se não encontrou, tenta outras colunas
           if (!itemDate) {
             const dateValue = item.Data || item['Data Abertura'] || item['Criado em'];
             itemDate = parseBRDate(dateValue);
           }
-          
+
           // Se ainda não encontrou data, inclui o item (não filtra)
           if (!itemDate) return true;
-          
+
           if (startDate && itemDate < startDate) return false;
           if (endDate && itemDate > endDate) return false;
-          
+
           return true;
         });
       }

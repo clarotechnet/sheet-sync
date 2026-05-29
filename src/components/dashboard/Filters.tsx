@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { filterExcludedServiceTypes } from '@/utils/activityHelpers';
 import * as XLSX from 'xlsx';
 import { Item } from '@radix-ui/react-accordion';
+import { FRENTES } from '@/config/frentesMap';
 
 interface MultiSelectProps {
   label: string;
@@ -38,7 +39,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
     }
   };
 
-   const filteredOptions = options.filter(opt =>
+  const filteredOptions = options.filter(opt =>
     opt.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -59,10 +60,10 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
           )}
           <span className={`multi-select-arrow ${isOpen ? 'rotate-180' : ''}`}>▼</span>
         </div>
-        
+
         {isOpen && (
           <div className="multi-select-dropdown open">
-             <input
+            <input
               type="text"
               className="w-full px-3 py-2 text-sm border-b border-border bg-background text-foreground outline-none placeholder:text-muted-foreground"
               placeholder="Buscar..."
@@ -80,7 +81,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
                 <span>{option}</span>
               </div>
             ))}
-              {filteredOptions.length === 0 && (
+            {filteredOptions.length === 0 && (
               <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado</div>
             )}
           </div>
@@ -99,9 +100,7 @@ export const Filters: React.FC = () => {
     return [...new Set(baseData.map(item => item.Recurso || '').filter(Boolean))].sort();
   }, [baseData]);
 
-  const activityTypes = useMemo(() => {
-    return [...new Set(baseData.map(item => item['Tipo de Atividade'] || '').filter(Boolean))].sort();
-  }, [baseData]);
+  const activityTypes = useMemo(() => FRENTES as unknown as string[], []);
 
   const cities = useMemo(() => {
     return [...new Set(baseData.map(item => (item.Cidade || item.cidade || '')).filter(Boolean))].sort();
@@ -126,7 +125,7 @@ export const Filters: React.FC = () => {
       alert('Nenhum dado para exportar');
       return;
     }
-    
+
     const headers = Object.keys(filteredData[0]);
     const csvContent = [
       headers.join(','),
@@ -139,7 +138,7 @@ export const Filters: React.FC = () => {
         }).join(',')
       )
     ].join('\n');
-    
+
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -152,7 +151,7 @@ export const Filters: React.FC = () => {
       alert('Nenhum dado para exportar');
       return;
     }
-    
+
     const ws = XLSX.utils.json_to_sheet(filteredData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Atividades');
@@ -173,7 +172,7 @@ export const Filters: React.FC = () => {
         <span className="text-accent">🔍</span>
         Filtros Avançados
       </h3>
-      
+
       <div className="filter-section">
         <MultiSelect
           label="Técnicos"
@@ -181,14 +180,15 @@ export const Filters: React.FC = () => {
           selected={filters.technicians}
           onChange={(selected) => setFilters({ technicians: selected })}
         />
-        
+
         <MultiSelect
-          label="Tipo de Atividade"
+          label="Tipo de Atividade (Frente)"
+          // label="Tipo de Atividade"
           options={activityTypes}
           selected={filters.activityTypes}
           onChange={(selected) => setFilters({ activityTypes: selected })}
         />
-        
+
         <MultiSelect
           label="Cidade"
           options={cities}
@@ -213,7 +213,7 @@ export const Filters: React.FC = () => {
             onChange={(e) => setFilters({ startDate: e.target.value })}
           />
         </div>
-        
+
         <div className="form-group">
           <Label className="form-label">Data Final</Label>
           <Input
@@ -223,7 +223,7 @@ export const Filters: React.FC = () => {
             onChange={(e) => setFilters({ endDate: e.target.value })}
           />
         </div>
-        
+
         <div className="form-group">
           <Label className="form-label">Busca Geral</Label>
           <Input
@@ -235,13 +235,13 @@ export const Filters: React.FC = () => {
           />
         </div>
       </div>
-      
+
       <div className="flex gap-3 mt-6 flex-wrap">
         <Button variant="secondary" onClick={clearFilters} className="gap-2">
           <Eraser className="w-4 h-4" />
           Limpar Filtros
         </Button>
-      
+
         <Button variant="success" onClick={exportCSV} className="gap-2">
           <FileDown className="w-4 h-4" />
           Exportar CSV
