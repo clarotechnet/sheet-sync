@@ -60,6 +60,8 @@ const RAW_MAP: Record<string, Frente> = {
     'Chip Correio': 'INSTALAÇÃO',
 };
 
+
+
 // Normaliza string para lookup case/acento-insensitive
 const norm = (s: string) =>
     s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
