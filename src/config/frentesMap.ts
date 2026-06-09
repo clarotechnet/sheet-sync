@@ -1,5 +1,5 @@
-export type Frente = 'DESCONEXÃO' | 'INSTALAÇÃO' | 'VISITA TECNICA' | 'MDU';
-export const FRENTES: Frente[] = ['DESCONEXÃO', 'INSTALAÇÃO', 'VISITA TECNICA', 'MDU'];
+export type Frente = 'DESCONEXÃO' | 'INSTALAÇÃO' | 'VISITA TECNICA' | 'MDU' | 'PONTO ULTRA';
+export const FRENTES: Frente[] = ['DESCONEXÃO', 'INSTALAÇÃO', 'VISITA TECNICA', 'MDU', 'PONTO ULTRA'];
 
 const RAW_MAP: Record<string, Frente> = {
     'Desconexao Inad': 'DESCONEXÃO',
@@ -39,7 +39,7 @@ const RAW_MAP: Record<string, Frente> = {
     'Manutencao Corretiva MDU': 'MDU',
     'Entrega de Controle VOZ': 'DESCONEXÃO',
     'INSTALACAO BSOD': 'INSTALAÇÃO',
-    'Instalacao SVA': 'INSTALAÇÃO',
+    'Instalacao SVA': 'PONTO ULTRA',
     'MANUTENCAO CORRETIVA - MDU GPON': 'MDU',
     'Modernizacao': 'VISITA TECNICA',
     'Manut Drop': 'VISITA TECNICA',
