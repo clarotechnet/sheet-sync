@@ -102,6 +102,12 @@ export const Filters: React.FC = () => {
 
   const activityTypes = useMemo(() => FRENTES as unknown as string[], []);
 
+
+  const technologies = useMemo(() => {
+    return [...new Set(baseData.map(item => item.Tecnologia || '').filter(Boolean))].sort();
+  }, [baseData]);
+
+
   const cities = useMemo(() => {
     return [...new Set(baseData.map(item => (item.Cidade || item.cidade || '')).filter(Boolean))].sort();
   }, [baseData]);
@@ -194,6 +200,13 @@ export const Filters: React.FC = () => {
           options={cities}
           selected={filters.cities}
           onChange={(selected) => setFilters({ cities: selected })}
+        />
+
+        <MultiSelect
+          label="Tecnologia"
+          options={technologies}
+          selected={filters.technologies}
+          onChange={(selected) => setFilters({ technologies: selected })}
         />
 
         <MultiSelect

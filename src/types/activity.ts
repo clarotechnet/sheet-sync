@@ -3,6 +3,8 @@ export interface ActivityData {
   "Intervalo de Tempo"?: string;
   "Tipo de Atividade"?: string;
   "Cód de Baixa 1"?: string;
+  "Habilidade de Trabalho"?: string;
+  Tecnologia?: string;
   Duração?: string;
   Bairro?: string;
   Latitude?: string;
@@ -31,6 +33,7 @@ export interface FilterState {
   endDate: string;
   cities: string[];
   productivityFilters: string[];
+  technologies: string[];
 }
 
 export type ActivityStatus = 'Produtiva' | 'Improdutiva' | 'Pendente' | 'Cancelado';

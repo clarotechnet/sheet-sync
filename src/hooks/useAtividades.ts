@@ -276,7 +276,7 @@ export const useAtividades = (): UseAtividadesReturn => {
       const startTime = performance.now();
 
       // Colunas específicas ao invés de select('*')
-      const columns = 'numero_os,contrato,data_atividade,recurso,status_atividade,tipo_atividade,cod_baixa_1,intervalo_tempo,duracao_minutos,latitude,longitude,cidade,bairro,numero_os1,tempo_de_deslocamento,contador_log,tecnico_referencia,status_execucao,is_revisita,ofensor_revisita';
+      const columns = 'numero_os,contrato,data_atividade,recurso,status_atividade,tipo_atividade,cod_baixa_1,intervalo_tempo,duracao_minutos,latitude,longitude,cidade,bairro,numero_os1,tempo_de_deslocamento,contador_log,tecnico_referencia,status_execucao,is_revisita,ofensor_revisita,habilidade_trabalho,tecnologia';
 
       // Primeiro: descobre quantos registros existem (HEAD request, não traz dados)
       const { count, error: countError } = await externalSupabase

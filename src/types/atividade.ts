@@ -21,6 +21,8 @@ export interface Atividade {
   is_revisita?: boolean;
   ofensor_revisita?: string;
   status_execucao?: string;
+  habilidade_trabalho?: string;
+  tecnologia?: string;
 }
 
 
@@ -103,6 +105,8 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     'is_revisita': atividade.is_revisita ? 'true' : 'false',
     'ofensor_revisita': atividade.ofensor_revisita || '',
     'Motivo de Fechamento Externo': atividade.status_execucao || '',
+    'Habilidade de Trabalho': atividade.habilidade_trabalho || '',
+    Tecnologia: atividade.tecnologia || '',
   };
 }
 
@@ -111,8 +115,29 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
 export function activityDataToAtividade(data: Record<string, string | undefined>): Omit<Atividade, 'id' | 'created_at'> {
   // Suporte para ambos os nomes de coluna: Latitude/Longitude e Coordenada Y/Coordenada X
   const latValue = data.Latitude || data['Coordenada Y'];
-  const lngValue = data.Longitude || data['Coordenada X']; 
-   // Parse duração: pode vir como "01:17" ou como número de minutos
+  const lngValue = data.Longitude || data['Coordenada X'];
+  const habilidadeTrabalho = data['Habilidade de Trabalho']?.trim() || undefined;
+  const tipoAtividade = data['Tipo de Atividade']?.trim() || undefined;
+  const normalizeClassificationText = (value: string | undefined) =>
+    (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLocaleLowerCase('pt-BR');
+  const tiposSemTecnologia = new Set([
+    'retirada equipamento',
+    'desconexao opcao',
+    'desconexao inad',
+    'retirar ponto',
+  ]);
+  const tipoAtividadeNormalizado = normalizeClassificationText(tipoAtividade);
+  const habilidadeNormalizada = normalizeClassificationText(habilidadeTrabalho);
+  const tecnologia: 'GPON' | 'HFC' | undefined = !habilidadeTrabalho || tiposSemTecnologia.has(tipoAtividadeNormalizado)
+    ? undefined
+    : /\bpon\b/i.test(habilidadeNormalizada) || habilidadeNormalizada.includes('sinergia mdu')
+      ? 'GPON'
+      : 'HFC';
+  // Parse duração: pode vir como "01:17" ou como número de minutos
   let duracaoMinutos: number | undefined = undefined;
   const duracaoStr = data.Duração || data['Duração'];
   if (duracaoStr) {
@@ -133,7 +158,7 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     data_atividade: brToIsoDate(data.Data),
     recurso: data.Recurso || undefined,
     status_atividade: data['Status da Atividade'] || undefined,
-    tipo_atividade: data['Tipo de Atividade'] || undefined,
+    tipo_atividade: tipoAtividade,
     cod_baixa_1: data['Cód de Baixa 1'] || undefined,
     intervalo_tempo: data['Intervalo de Tempo'] || undefined,
     duracao_minutos: duracaoMinutos,
@@ -147,5 +172,7 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     is_revisita: data['is_revisita'] === 'true',
     ofensor_revisita: data['ofensor_revisita'] || undefined,
     status_execucao: data['Motivo de Fechamento Externo']?.trim() || null,
+    habilidade_trabalho: habilidadeTrabalho,
+    tecnologia: tecnologia,
   };
 }

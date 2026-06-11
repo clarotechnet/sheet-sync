@@ -26,7 +26,8 @@ const initialFilters: FilterState = {
   startDate: '',
   endDate: '',
   cities: [],
-  productivityFilters: []
+  productivityFilters: [],
+  technologies: [],
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -66,6 +67,11 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
           const cidade = item.Cidade || item.cidade || '';
           return filters.cities.includes(cidade);
         });
+      }
+
+      // Filtro por tecnologia
+      if (filters.technologies.length > 0) {
+        result = result.filter(item => filters.technologies.includes(item.Tecnologia || ''));
       }
 
       // Filtro por produtividade
