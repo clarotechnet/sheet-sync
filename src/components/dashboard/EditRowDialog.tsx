@@ -47,6 +47,7 @@ export const EditRowDialog: React.FC<EditRowDialogProps> = ({ open, onOpenChange
         intervalo_tempo: '',
         bairro: '',
         cidade: '',
+        tecnologia: '',
     });
 
     useEffect(() => {
@@ -61,6 +62,7 @@ export const EditRowDialog: React.FC<EditRowDialogProps> = ({ open, onOpenChange
             intervalo_tempo: item['Intervalo de Tempo'] || '',
             bairro: item.Bairro || '',
             cidade: item.Cidade || item.cidade || '',
+            tecnologia: item.Tecnologia || '',
         });
     }, [item]);
 
@@ -104,6 +106,7 @@ export const EditRowDialog: React.FC<EditRowDialogProps> = ({ open, onOpenChange
             intervalo_tempo: form.intervalo_tempo || null,
             bairro: form.bairro || null,
             cidade: form.cidade || null,
+            tecnologia: form.tecnologia || null,
         };
 
         const { error } = await externalSupabase.from('atividades').update(payload).match(match);
@@ -173,9 +176,21 @@ export const EditRowDialog: React.FC<EditRowDialogProps> = ({ open, onOpenChange
                         <Label>Cidade</Label>
                         <Input value={form.cidade} onChange={(e) => set('cidade', e.target.value)} />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2">
                         <Label>Bairro</Label>
                         <Input value={form.bairro} onChange={(e) => set('bairro', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Tecnologia</Label>
+                        <select
+                            value={form.tecnologia}
+                            onChange={(e) => set('tecnologia', e.target.value)}
+                            className="w-full bg-transparent border border-border rounded px-3 py-2 text-sm h-10"
+                        >
+                            <option value="">Nenhuma</option>
+                            <option value="GPON">GPON</option>
+                            <option value="HFC">HFC</option>
+                        </select>
                     </div>
                 </div>
 

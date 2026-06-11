@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Table, ArrowUpAZ, ArrowDownAZ, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { getActivityStatus } from '@/utils/activityHelpers';
 import { EditRowDialog } from './EditRowDialog';
 
 type SortOrder = 'none' | 'asc' | 'desc';
-type SortField = 'recurso' | 'tipoAtividade' | 'contrato' | 'codBaixa' | 'status' | 'data' | 'intervalo';
+type SortField = 'recurso' | 'tipoAtividade' | 'contrato' | 'codBaixa' | 'status' | 'data' | 'intervalo' | 'tecnologia';
 
 const ITEMS_PER_PAGE = 100;
 const STATUS_OPTIONS = ['Produtiva', 'Pendente', 'Improdutiva', 'Cancelada'] as const;
@@ -159,6 +159,7 @@ export const DataTable: React.FC = () => {
       case 'status': return computeStatus(item).toLowerCase();
       case 'data': return (item.Data || '').toLowerCase();
       case 'intervalo': return (item['Intervalo de Tempo'] || '').toLowerCase();
+      case 'tecnologia': return (item.Tecnologia || '').toLowerCase();
     }
   };
   const sortedData = useMemo(() => {
@@ -294,13 +295,16 @@ export const DataTable: React.FC = () => {
               <th onClick={() => toggleSort('intervalo')} className={sortableThClass} title="Ordenar">
                 <div className="flex items-center gap-2">Intervalo de Tempo {renderSortIcon('intervalo')}</div>
               </th>
+              <th onClick={() => toggleSort('tecnologia')} className={sortableThClass} title="Ordenar">
+                <div className="flex items-center gap-2">Tecnologia {renderSortIcon('tecnologia')}</div>
+              </th>
             </tr>
           </thead>
 
           <tbody>
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="text-center py-12 text-muted-foreground">
+                <td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-muted-foreground">
                   Nenhum dado para exibir
                 </td>
               </tr>
@@ -415,6 +419,7 @@ export const DataTable: React.FC = () => {
                     </td>
                     <td>{item.Data || 'N/A'}</td>
                     <td>{item['Intervalo de Tempo'] || 'N/A'}</td>
+                    <td>{item.Tecnologia || 'N/A'}</td>
                   </tr>
                 );
               })
