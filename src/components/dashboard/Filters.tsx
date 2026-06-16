@@ -189,7 +189,6 @@ export const Filters: React.FC = () => {
 
         <MultiSelect
           label="Tipo de Atividade (Frente)"
-          // label="Tipo de Atividade"
           options={activityTypes}
           selected={filters.activityTypes}
           onChange={(selected) => setFilters({ activityTypes: selected })}

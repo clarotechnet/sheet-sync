@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { externalSupabase } from "@/integrations/supabase/externalClient";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -116,7 +116,7 @@ const App = () => {
           <Toaster />
           <Sonner />
 
-          <HashRouter>
+          <BrowserRouter>
             <RecoveryRedirect />
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -163,7 +163,7 @@ const App = () => {
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </HashRouter>
+          </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
