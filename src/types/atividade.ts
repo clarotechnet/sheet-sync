@@ -26,16 +26,37 @@ export interface Atividade {
 }
 
 
-// Converte data BR (dd/mm/yy ou dd/mm/yyyy) para ISO (yyyy-mm-dd)
+const normalizeTextField = (value: string | undefined): string | undefined => {
+  const text = String(value || '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || undefined;
+};
+
+// Converte datas aceitas para ISO date puro (yyyy-mm-dd).
 export function brToIsoDate(br: string | undefined): string | undefined {
   if (!br) return undefined;
-  const parts = br.split("/");
-  if (parts.length !== 3) return br; // Retorna original se não for formato BR
-  const [dd, mm, yy] = parts;
-  let year = yy;
-  // Se vier com 2 dígitos, assume 2000+
-  if (yy.length === 2) year = String(2000 + Number(yy));
-  return `${year.padStart(4, "0")}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+
+  const value = String(br).trim();
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const brMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (!brMatch) return undefined;
+
+  const day = Number(brMatch[1]);
+  const month = Number(brMatch[2]);
+  let year = Number(brMatch[3]);
+
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return undefined;
+  if (day < 1 || day > 31 || month < 1 || month > 12) return undefined;
+
+  if (year < 100) year += 2000;
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 // Converte data ISO (yyyy-mm-dd) para BR (dd/mm/yyyy)
@@ -152,26 +173,25 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     }
   }
   return {
-    numero_os: data['Número da WO'] || undefined,
-    numero_os1: data['Número da O.S 1'] || undefined,
-    contrato: data.Contrato || undefined,
+    numero_os: normalizeTextField(data['Número da WO']),
+    numero_os1: normalizeTextField(data['Número da O.S 1']),
+    contrato: normalizeTextField(data.Contrato),
     data_atividade: brToIsoDate(data.Data),
-    recurso: data.Recurso || undefined,
-    status_atividade: data['Status da Atividade'] || undefined,
+    recurso: normalizeTextField(data.Recurso),
+    status_atividade: normalizeTextField(data['Status da Atividade']),
     tipo_atividade: tipoAtividade,
-    cod_baixa_1: data['Cód de Baixa 1'] || undefined,
-    intervalo_tempo: data['Intervalo de Tempo'] || undefined,
+    cod_baixa_1: normalizeTextField(data['Cód de Baixa 1']),
+    intervalo_tempo: normalizeTextField(data['Intervalo de Tempo']),
     duracao_minutos: duracaoMinutos,
     latitude: latValue ? parseFloat(latValue) || undefined : undefined,
     longitude: lngValue ? parseFloat(lngValue) || undefined : undefined,
-    cidade: data.Cidade || data.cidade || undefined,
-    bairro: data.Bairro || undefined,
+    cidade: normalizeTextField(data.Cidade || data.cidade),
+    bairro: normalizeTextField(data.Bairro),
     tempo_de_deslocamento: minutesToTimeFormat(data['Tempo de Deslocamento']),
-    contador_log: data['Contador Log'] || undefined,
-    tecnico_referencia: data['Técnico Referência'] || undefined,
+    tecnico_referencia: normalizeTextField(data['Técnico Referência']),
     is_revisita: data['is_revisita'] === 'true',
-    ofensor_revisita: data['ofensor_revisita'] || undefined,
-    status_execucao: data['Motivo de Fechamento Externo']?.trim() || null,
+    ofensor_revisita: normalizeTextField(data['ofensor_revisita']),
+    status_execucao: normalizeTextField(data['Motivo de Fechamento Externo']) || null,
     habilidade_trabalho: habilidadeTrabalho,
     tecnologia: tecnologia,
   };

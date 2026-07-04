@@ -42,6 +42,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
 
   const alertTimerRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
+  const sendingRef = useRef(false);
 
   // auto-dismiss alert
   useEffect(() => {
@@ -278,9 +279,10 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
 
   // enviar todos
   const sendAll = useCallback(
-    async (concurrency = 2) => {
-      if (isUploading || pendingQueue.length === 0) return;
+    async () => {
+      if (sendingRef.current || isUploading || pendingQueue.length === 0) return;
 
+      sendingRef.current = true;
       const sendingQueue = [...pendingQueue];
       setPendingQueue([]);
       cancelledRef.current = false;
@@ -290,7 +292,6 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       let allNewData: ActivityData[] = [];
       let done = 0;
-      let index = 0;
       const errors: string[] = [];
 
       setUploadProgress({
@@ -300,14 +301,9 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
         percent: 0,
       });
 
-      const worker = async () => {
-        while (true) {
-          if (cancelledRef.current) return;
-
-          const i = index++;
-          if (i >= sendingQueue.length) return;
-
-          const { file } = sendingQueue[i];
+      try {
+        for (const { file } of sendingQueue) {
+          if (cancelledRef.current) break;
 
           setUploadProgress(prev => ({
             ...prev,
@@ -335,11 +331,6 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
             percent: 0,
           }));
         }
-      };
-
-      try {
-        const workers = Array.from({ length: Math.min(concurrency, sendingQueue.length) }, worker);
-        await Promise.all(workers);
 
         if (cancelledRef.current) {
           setValidationResult({ isValid: false, message: 'Upload cancelado pelo usuário.' });
@@ -365,6 +356,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
           message: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         });
       } finally {
+        sendingRef.current = false;
         setIsUploading(false);
         setUploadProgress({ done: 0, total: 0, currentName: '', percent: 0 });
       }
@@ -559,7 +551,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement>((_, ref) => {
 
       {hasPendingFiles && !isUploading && (
         <div className="mt-4 flex gap-2">
-          <Button onClick={() => sendAll(2)} className="flex-1">
+          <Button onClick={() => sendAll()} className="flex-1" disabled={isUploading || pendingQueue.length === 0}>
             <Upload className="w-4 h-4 mr-2" />
             Enviar {pendingQueue.length} arquivo(s)
           </Button>
