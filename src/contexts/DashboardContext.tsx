@@ -56,7 +56,7 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
       // Filtro por tipo de atividade (frentes)
       if (filters.activityTypes.length > 0) {
         result = result.filter(item => {
-          const frente = getFrenteForTipo(item['Tipo de Atividade']);
+          const frente = getFrenteForTipo(item['Tipo de Atividade'], item['Tipo O.S 1']);
           return frente ? filters.activityTypes.includes(frente) : false;
         });
       }

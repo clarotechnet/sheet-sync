@@ -1,5 +1,21 @@
-export type Frente = 'DESCONEXÃO' | 'INSTALAÇÃO' | 'VISITA TECNICA' | 'MDU' | 'PONTO ULTRA';
-export const FRENTES: Frente[] = ['DESCONEXÃO', 'INSTALAÇÃO', 'VISITA TECNICA', 'MDU', 'PONTO ULTRA'];
+export type Frente =
+    | 'DESCONEXÃO'
+    | 'INSTALAÇÃO'
+    | 'INSTALAÇÃO ND'
+    | 'MIGRAÇÃO'
+    | 'VISITA TECNICA'
+    | 'MDU'
+    | 'PONTO ULTRA';
+
+export const FRENTES: Frente[] = [
+    'DESCONEXÃO',
+    'INSTALAÇÃO',
+    'INSTALAÇÃO ND',
+    'MIGRAÇÃO',
+    'VISITA TECNICA',
+    'MDU',
+    'PONTO ULTRA',
+];
 
 const RAW_MAP: Record<string, Frente> = {
     'Desconexao Inad': 'DESCONEXÃO',
@@ -8,7 +24,7 @@ const RAW_MAP: Record<string, Frente> = {
     'Retirada Equipamento': 'DESCONEXÃO',
     'Manutencao Preventiva MDU': 'MDU',
     'Troca Terminal 4K': 'INSTALAÇÃO',
-    'INST GPON - INST CABO': 'INSTALAÇÃO',
+    'INST GPON - INST CABO': 'MIGRAÇÃO',
     'Visita Tecnica': 'VISITA TECNICA',
     'Manutencao Indoor': 'VISITA TECNICA',
     'Manut Ruido': 'VISITA TECNICA',
@@ -70,9 +86,31 @@ const NORMALIZED_MAP: Record<string, Frente> = Object.fromEntries(
     Object.entries(RAW_MAP).map(([k, v]) => [norm(k), v])
 );
 
-export function getFrenteForTipo(tipo: string | undefined | null): Frente | null {
+const TIPOS_OS_INSTALACAO_ND = new Set([
+    norm('1 - ADESAO - INSTALACAO DE ASSINATURA'),
+    norm('51 - ADESAO - INSTALACAO DE ASSINATURA DIGITAL'),
+]);
+
+export function getFrenteForTipo(
+    tipo: string | undefined | null,
+    tipoOs1?: string | null
+): Frente | null {
     if (!tipo) return null;
-    return NORMALIZED_MAP[norm(tipo)] ?? null;
+
+    const frenteBase = NORMALIZED_MAP[norm(tipo)] ?? null;
+
+    // Migração tem prioridade mesmo que o arquivo traga um Tipo O.S 1 de adesão.
+    if (frenteBase === 'MIGRAÇÃO') return frenteBase;
+
+    if (
+        frenteBase === 'INSTALAÇÃO' &&
+        tipoOs1 &&
+        TIPOS_OS_INSTALACAO_ND.has(norm(tipoOs1))
+    ) {
+        return 'INSTALAÇÃO ND';
+    }
+
+    return frenteBase;
 }
 
 export function getTiposByFrente(frente: Frente): string[] {

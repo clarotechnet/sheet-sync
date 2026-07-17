@@ -2,6 +2,7 @@ export interface ActivityData {
   Recurso?: string;
   "Intervalo de Tempo"?: string;
   "Tipo de Atividade"?: string;
+  "Tipo O.S 1"?: string;
   "Cód de Baixa 1"?: string;
   "Habilidade de Trabalho"?: string;
   Tecnologia?: string;

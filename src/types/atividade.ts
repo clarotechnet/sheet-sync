@@ -6,6 +6,7 @@ export interface Atividade {
   recurso?: string;
   status_atividade?: string;
   tipo_atividade?: string;
+  tipo_os1?: string;
   cod_baixa_1?: string;
   intervalo_tempo?: string;
   duracao_minutos?: number; // INT4
@@ -111,6 +112,7 @@ export function atividadeToActivityData(atividade: Atividade): Record<string, st
     Data: isoToBrDate(atividade.data_atividade) || '',
     'Status da Atividade': atividade.status_atividade || '',
     'Tipo de Atividade': atividade.tipo_atividade || '',
+    'Tipo O.S 1': atividade.tipo_os1 || '',
     'Cód de Baixa 1': atividade.cod_baixa_1 || '',
     'Intervalo de Tempo': atividade.intervalo_tempo || '',
     Duração: atividade.duracao_minutos?.toString() || '',
@@ -180,6 +182,7 @@ export function activityDataToAtividade(data: Record<string, string | undefined>
     recurso: normalizeTextField(data.Recurso),
     status_atividade: normalizeTextField(data['Status da Atividade']),
     tipo_atividade: tipoAtividade,
+    tipo_os1: normalizeTextField(data['Tipo O.S 1']),
     cod_baixa_1: normalizeTextField(data['Cód de Baixa 1']),
     intervalo_tempo: normalizeTextField(data['Intervalo de Tempo']),
     duracao_minutos: duracaoMinutos,
