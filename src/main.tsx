@@ -2,22 +2,12 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-const hash = window.location.hash;
+const rootElement = document.getElementById("root");
 
-const isSupabaseErrorReturn =
-    hash.startsWith("#error=") ||
-    hash.includes("error_code=") ||
-    hash.includes("access_denied") ||
-    hash.includes("otp_expired");
-
-if (isSupabaseErrorReturn) {
-    sessionStorage.setItem("supabaseRecoveryHash", hash);
-
-    window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}#/reset-password`
+if (!rootElement) {
+    throw new Error(
+        'O elemento HTML com id "root" não foi encontrado.'
     );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(rootElement).render(<App />);

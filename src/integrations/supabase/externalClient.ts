@@ -1,10 +1,10 @@
 // Cliente para Supabase externo (banco de atividades)
 import { createClient } from '@supabase/supabase-js';
 
-const EXTERNAL_SUPABASE_URL = 'https://lsxjqzrhgznhopqyapoc.supabase.co';
-const EXTERNAL_SUPABASE_ANON_KEY = 'sb_publishable_1htA7BczszuZuF7hC5WZBw_tBw7DPNL';
+const url = import.meta.env.VITE_SUPABASE_URL;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const externalSupabase = createClient(
-  EXTERNAL_SUPABASE_URL,
-  EXTERNAL_SUPABASE_ANON_KEY
+  url,
+  key
 );
