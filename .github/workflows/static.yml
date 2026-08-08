@@ -10,7 +10,6 @@ jobs:
     name: Build e enviar para Hostinger
     runs-on: ubuntu-latest
 
-
     steps:
       - name: Baixar código
         uses: actions/checkout@v4
@@ -23,11 +22,11 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Gerar build
+      - name: Build
         run: npm run build
-
-      - name: Criar arquivo teste
-        run: echo "deploy teste $(date)" > dist/deploy-teste.txt
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Enviar dist para Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -35,6 +34,7 @@ jobs:
           server: ${{ secrets.HOSTINGER_FTP_SERVER }}
           username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
           password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftp
           port: 21
           local-dir: ./dist/
           server-dir: ./sistema/
