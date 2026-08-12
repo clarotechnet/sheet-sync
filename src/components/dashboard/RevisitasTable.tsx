@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { getActivityStatus } from '@/utils/activityHelpers';
+import { calculateTecnicosRevisita } from '@/utils/revisitasAnalytics';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,13 +12,6 @@ import {
 } from '@/components/ui/dialog';
 
 const ITEMS_PER_PAGE = 50;
-
-interface TecnicoRevisita {
-  tecnico: string;
-  quantidadeOS: number;
-  revisitas: number;
-  porcentagem: number;
-}
 
 type SummaryCol = 'tecnico' | 'quantidadeOS' | 'revisitas' | 'porcentagem';
 type DetailCol = 'contrato' | 'data' | 'tipo' | 'codBaixa' | 'status' | 'revisita';
@@ -46,32 +40,10 @@ export const RevisitasTable: React.FC = () => {
     setDetailPage(1);
   };
 
-  const tecnicosSummary = useMemo(() => {
-    const revisitasMap = new Map<string, number>();
-    for (const item of filteredData) {
-      if (item['is_revisita'] === 'true') {
-        const ofensor = (item['ofensor_revisita'] || '').trim();
-        if (ofensor) revisitasMap.set(ofensor, (revisitasMap.get(ofensor) || 0) + 1);
-      }
-    }
-
-    const osMap = new Map<string, number>();
-    for (const item of filteredData) {
-      const recurso = (item['Recurso'] || item['recurso'] || '').trim();
-      if (!recurso || !revisitasMap.has(recurso)) continue;
-      const s = (item['Status da Atividade'] || '').trim().toLowerCase();
-      if (s === 'concluído' || s === 'concluido' || s === 'não concluído' || s === 'nao concluido' || s === 'não concluido' || s === 'nao concluído') {
-        osMap.set(recurso, (osMap.get(recurso) || 0) + 1);
-      }
-    }
-
-    const result: TecnicoRevisita[] = [];
-    revisitasMap.forEach((revisitas, tecnico) => {
-      const os = osMap.get(tecnico) || 0;
-      result.push({ tecnico, quantidadeOS: os, revisitas, porcentagem: os > 0 ? (revisitas / os) * 100 : 0 });
-    });
-    return result;
-  }, [filteredData]);
+  const tecnicosSummary = useMemo(
+    () => calculateTecnicosRevisita(filteredData),
+    [filteredData]
+  );
 
   const sortedSummary = useMemo(() => {
     const sorted = [...tecnicosSummary];
