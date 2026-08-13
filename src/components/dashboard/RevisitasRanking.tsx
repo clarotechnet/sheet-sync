@@ -25,6 +25,7 @@ import {
 import { useDashboard } from '@/contexts/DashboardContext';
 import {
   calculateTecnicosRevisita,
+  countRevisitas,
   FaixaRevisita,
   getFaixaRevisita,
 } from '@/utils/revisitasAnalytics';
@@ -100,6 +101,11 @@ export const RevisitasRanking: React.FC = () => {
     [filteredData]
   );
 
+  const revisitasNoPeriodo = useMemo(
+    () => countRevisitas(filteredData),
+    [filteredData]
+  );
+
   const filteredTechnicians = useMemo(() => {
     const minimum = Number(minimumOS);
     return tecnicos.filter((item) => item.quantidadeOS >= minimum);
@@ -162,7 +168,7 @@ export const RevisitasRanking: React.FC = () => {
   const kpis = [
     {
       label: 'Revisitas no período',
-      value: totals.totalRevisitas.toLocaleString('pt-BR'),
+      value: revisitasNoPeriodo.toLocaleString('pt-BR'),
       icon: Activity,
       iconClass: 'text-red-600 bg-red-50',
     },

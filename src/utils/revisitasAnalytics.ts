@@ -28,6 +28,12 @@ export const getFaixaRevisita = (tecnico: TecnicoRevisita): FaixaRevisita => {
   return 'controlado';
 };
 
+export const countRevisitas = (data: ActivityData[]): number =>
+  data.reduce(
+    (total, item) => total + (item.is_revisita === 'true' ? 1 : 0),
+    0
+  );
+
 export const calculateTecnicosRevisita = (data: ActivityData[]): TecnicoRevisita[] => {
   const revisitasMap = new Map<string, number>();
 
