@@ -29,6 +29,7 @@ export const useAtividades = (): UseAtividadesReturn => {
   const isInitialLoadRef = useRef(true);
   const lastSyncedDataRef = useRef<string>('');
   const pendingSyncRef = useRef<ActivityData[] | null>(null);
+  const adaptiveBatchSizeRef = useRef(25);
 
   // Deduplica por numero_os1 + numero_os + contrato + data_atividade antes do upsert.
   const prepareAtividadesForUpsert = useCallback(
@@ -93,37 +94,81 @@ export const useAtividades = (): UseAtividadesReturn => {
     batchNum: number,
     totalBatches: number
   ): Promise<void> => {
-    const firstKey = buildCompositeKey(batch[0]);
-    const lastKey = buildCompositeKey(batch[batch.length - 1]);
+    const sendSegment = async (
+      items: AtividadePayload[],
+      segmentPath = ''
+    ): Promise<void> => {
+      const label = `Lote ${batchNum}/${totalBatches}${segmentPath ? `, sublote ${segmentPath}` : ''}`;
+      const firstKey = buildCompositeKey(items[0]);
+      const lastKey = buildCompositeKey(items[items.length - 1]);
 
-    console.log(
-      `[atividades] Lote ${batchNum}/${totalBatches}: ${batch.length} registros | primeira chave=${firstKey} | ultima chave=${lastKey}`
-    );
-
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      const { error: upsertError } = await externalSupabase
-        .from('atividades')
-        .upsert(batch, {
-          onConflict: 'numero_os1,numero_os,contrato,data_atividade',
-          ignoreDuplicates: false
-        });
-
-      if (!upsertError) {
-        console.log(`[atividades] Lote ${batchNum}/${totalBatches} OK na tentativa ${attempt}/4.`);
-        return;
-      }
-
-      console.warn(
-        `[atividades] Lote ${batchNum}/${totalBatches} falhou na tentativa ${attempt}/4: ${upsertError.message}`
+      console.log(
+        `[atividades] ${label}: ${items.length} registros | primeira chave=${firstKey} | ultima chave=${lastKey}`
       );
 
-      if (attempt === 4) {
-        throw new Error(`Lote ${batchNum}/${totalBatches} falhou apos 4 tentativas: ${upsertError.message}`);
-      }
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const { error: upsertError } = await externalSupabase
+          .from('atividades')
+          .upsert(items, {
+            onConflict: 'numero_os1,numero_os,contrato,data_atividade',
+            ignoreDuplicates: false
+          });
 
-      const waitMs = attempt * 2500;
-      await new Promise(r => setTimeout(r, waitMs));
+        if (!upsertError) {
+          console.log(`[atividades] ${label} OK na tentativa ${attempt}/4.`);
+          return;
+        }
+
+        const isStatementTimeout =
+          upsertError.code === '57014'
+          || /statement timeout/i.test(upsertError.message);
+
+        console.warn(
+          `[atividades] ${label} falhou na tentativa ${attempt}/4: ${upsertError.message}`
+        );
+
+        // Um timeout cancela toda a instrucao no Postgres. Divide o segmento
+        // e aguarda cada metade em sequencia para reduzir o trabalho dos triggers.
+        if (isStatementTimeout && items.length > 1) {
+          const nextSize = Math.max(1, Math.floor(items.length / 2));
+          adaptiveBatchSizeRef.current = Math.min(adaptiveBatchSizeRef.current, nextSize);
+          const middle = Math.ceil(items.length / 2);
+
+          console.warn(
+            `[atividades] ${label} excedeu o timeout; dividindo em ${middle} + ${items.length - middle} registros sequenciais.`
+          );
+
+          await sendSegment(items.slice(0, middle), `${segmentPath || '1'}.1`);
+          await sendSegment(items.slice(middle), `${segmentPath || '1'}.2`);
+          return;
+        }
+
+        if (attempt === 4) {
+          throw new Error(`${label} falhou apos 4 tentativas: ${upsertError.message}`);
+        }
+
+        const waitMs = attempt * 2500;
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    };
+
+    const learnedBatchSize = adaptiveBatchSizeRef.current;
+    if (batch.length > learnedBatchSize) {
+      const learnedSegments = Math.ceil(batch.length / learnedBatchSize);
+      console.warn(
+        `[atividades] Lote ${batchNum}/${totalBatches}: usando ${learnedSegments} sublotes sequenciais de ate ${learnedBatchSize} registros apos timeout anterior.`
+      );
+
+      for (let start = 0, part = 1; start < batch.length; start += learnedBatchSize, part++) {
+        await sendSegment(
+          batch.slice(start, start + learnedBatchSize),
+          `adaptativo-${part}/${learnedSegments}`
+        );
+      }
+      return;
     }
+
+    await sendSegment(batch);
   }, []);
 
   // Lock para evitar syncs simultâneos
