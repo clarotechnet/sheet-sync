@@ -19,15 +19,27 @@ interface DashboardContextType {
   refreshData: () => Promise<void>;
 }
 
-const initialFilters: FilterState = {
-  technicians: [],
-  activityTypes: [],
-  searchText: '',
-  startDate: '',
-  endDate: '',
-  cities: [],
-  productivityFilters: [],
-  technologies: [],
+const formatLocalIsoDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const createInitialFilters = (): FilterState => {
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  return {
+    technicians: [],
+    activityTypes: [],
+    searchText: '',
+    startDate: formatLocalIsoDate(firstDayOfMonth),
+    endDate: formatLocalIsoDate(today),
+    cities: [],
+    productivityFilters: [],
+    technologies: [],
+  };
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -35,13 +47,13 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useGoogleSheets();
   const { data, isLoading, isSyncing, error, fetchData, syncData, setData, mergeNewData } = useAtividades();
-  const [filters, setFiltersState] = useState<FilterState>(initialFilters);
+  const [filters, setFiltersState] = useState<FilterState>(createInitialFilters);
   const [filteredData, setFilteredData] = useState<ActivityData[]>([]);
 
   // Fetch inicial
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(filters.startDate, filters.endDate);
+  }, [fetchData, filters.startDate, filters.endDate]);
 
   // Aplica filtros quando dados ou filtros mudam
   useEffect(() => {
@@ -142,12 +154,12 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFiltersState(initialFilters);
+    setFiltersState(createInitialFilters());
   }, []);
 
   const clearData = useCallback(() => {
     setData([]);
-    setFiltersState(initialFilters);
+    setFiltersState(createInitialFilters());
   }, [setData]);
 
   const addNewData = useCallback((newData: ActivityData[]) => {
@@ -155,8 +167,8 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [mergeNewData]);
 
   const refreshData = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+    await fetchData(filters.startDate, filters.endDate);
+  }, [fetchData, filters.startDate, filters.endDate]);
 
   return (
     <DashboardContext.Provider

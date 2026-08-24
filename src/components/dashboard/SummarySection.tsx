@@ -2,11 +2,12 @@ import React, { useMemo } from 'react';
 import { ListTree, CheckCheck, Clock, GitBranch } from 'lucide-react';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { 
-  calculateActivityCounts, 
   getActivityStatus, 
   parseDurationToMinutes, 
   formatMinutesToTime 
 } from '@/utils/activityHelpers';
+import { getFrenteForTipo } from '@/config/frentesMap';
+import { ActivityData } from '@/types/activity';
 
 interface SummaryCardProps {
   title: string;
@@ -25,11 +26,33 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, icon, iconColor, child
   </div>
 );
 
+const normalizeType = (value: string) =>
+  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+const getSummaryType = (item: ActivityData) => {
+  const rawType = item['Tipo de Atividade']?.trim() || 'Não Informado';
+
+  if (normalizeType(rawType) !== 'instalacao') return rawType;
+
+  const frente = getFrenteForTipo(rawType, item['Tipo O.S 1']);
+  return frente === 'INSTALAÇÃO ND' ? 'Instalação ND' : 'Instalação';
+};
+
 export const SummarySection: React.FC = () => {
   const { filteredData } = useDashboard();
 
   const activityCounts = useMemo(() => {
-    const counts = calculateActivityCounts(filteredData);
+    const counts: Record<string, { total: number; productive: number }> = {};
+
+    filteredData.forEach(item => {
+      const type = getSummaryType(item);
+      const isProductive = getActivityStatus(item) === 'Produtiva';
+
+      if (!counts[type]) counts[type] = { total: 0, productive: 0 };
+      counts[type].total++;
+      if (isProductive) counts[type].productive++;
+    });
+
     return Object.entries(counts)
        // Exclui o tipo "Normal" da lista
       .filter(([type]) => type.toLowerCase() !== 'normal')   
@@ -49,7 +72,7 @@ export const SummarySection: React.FC = () => {
     const timeData: Record<string, { totalMinutes: number; count: number }> = {};
     
     filteredData.forEach(item => {
-      const type = item['Tipo de Atividade'] || 'Não Informado';
+      const type = getSummaryType(item);
       const minutes = parseDurationToMinutes(item.Duração);
       
       if (!timeData[type]) {

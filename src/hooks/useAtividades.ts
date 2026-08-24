@@ -9,7 +9,7 @@ interface UseAtividadesReturn {
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
-  fetchData: () => Promise<void>;
+  fetchData: (startDate?: string, endDate?: string) => Promise<void>;
   syncData: (rows: ActivityData[]) => Promise<void>;
   setData: (data: ActivityData[]) => void;
   mergeNewData: (newData: ActivityData[]) => void;
@@ -30,6 +30,7 @@ export const useAtividades = (): UseAtividadesReturn => {
   const lastSyncedDataRef = useRef<string>('');
   const pendingSyncRef = useRef<ActivityData[] | null>(null);
   const adaptiveBatchSizeRef = useRef(25);
+  const fetchRequestIdRef = useRef(0);
 
   // Deduplica por numero_os1 + numero_os + contrato + data_atividade antes do upsert.
   const prepareAtividadesForUpsert = useCallback(
@@ -254,29 +255,41 @@ export const useAtividades = (): UseAtividadesReturn => {
     }
   }, [doSync]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (startDate?: string, endDate?: string) => {
+    const requestId = ++fetchRequestIdRef.current;
     setIsLoading(true);
     setError(null);
     isInitialLoadRef.current = true;
 
+
     try {
-      console.log("Buscando dados do Supabase...");
+      const periodLabel = startDate || endDate
+        ? `${startDate || 'inicio'} ate ${endDate || 'hoje'}`
+        : 'todo o historico';
+      console.log(`Buscando dados do Supabase: ${periodLabel}...`);
       const startTime = performance.now();
 
       // Colunas específicas ao invés de select('*')
-      const columns = 'numero_os,contrato,data_atividade,recurso,status_atividade,tipo_atividade,tipo_os1,cod_baixa_1,intervalo_tempo,duracao_minutos,latitude,longitude,cidade,bairro,numero_os1,tempo_de_deslocamento,contador_log,tecnico_referencia,status_execucao,is_revisita,ofensor_revisita,habilidade_trabalho,tecnologia';
+      const columns = 'id,numero_os,contrato,data_atividade,recurso,status_atividade,tipo_atividade,tipo_os1,cod_baixa_1,intervalo_tempo,duracao_minutos,latitude,longitude,cidade,bairro,numero_os1,tempo_de_deslocamento,contador_log,tecnico_referencia,status_execucao,is_revisita,ofensor_revisita,habilidade_trabalho,tecnologia';
 
-      // Primeiro: descobre quantos registros existem (HEAD request, não traz dados)
-      const { count, error: countError } = await externalSupabase
+      // Conta e busca somente o periodo selecionado, sem baixar todo o historico.
+      let countQuery = externalSupabase
         .from('atividades')
         .select('id', { count: 'exact', head: true });
+
+      if (startDate) countQuery = countQuery.gte('data_atividade', startDate);
+      if (endDate) countQuery = countQuery.lte('data_atividade', endDate);
+
+      const { count, error: countError } = await countQuery;
 
       if (countError) {
         throw new Error(countError.message);
       }
 
+      if (requestId !== fetchRequestIdRef.current) return;
+
       const totalRows = count || 0;
-      console.log(`Total de registros: ${totalRows}`);
+      console.log(`Total de registros no periodo: ${totalRows}`);
 
       if (totalRows === 0) {
         console.log("Nenhum dado encontrado no Supabase.");
@@ -288,15 +301,23 @@ export const useAtividades = (): UseAtividadesReturn => {
       const pageSize = 1000;
       const totalPages = Math.ceil(totalRows / pageSize);
 
-      const pagePromises = Array.from({ length: totalPages }, (_, i) =>
-        externalSupabase
+      const pagePromises = Array.from({ length: totalPages }, (_, i) => {
+        let pageQuery = externalSupabase
           .from('atividades')
-          .select(columns)
-          .range(i * pageSize, (i + 1) * pageSize - 1)
+          .select(columns);
+
+        if (startDate) pageQuery = pageQuery.gte('data_atividade', startDate);
+        if (endDate) pageQuery = pageQuery.lte('data_atividade', endDate);
+
+        return pageQuery
           .order('data_atividade', { ascending: false })
-      );
+          .order('id', { ascending: false })
+          .range(i * pageSize, (i + 1) * pageSize - 1);
+      });
 
       const results = await Promise.all(pagePromises);
+
+      if (requestId !== fetchRequestIdRef.current) return;
 
       // Acumula com push (sem spread/cópia de array)
       const allData: Atividade[] = [];
@@ -318,13 +339,16 @@ export const useAtividades = (): UseAtividadesReturn => {
       // Usa length como referência simples ao invés de JSON.stringify pesado
       lastSyncedDataRef.current = String(convertedData.length);
     } catch (err) {
+      if (requestId !== fetchRequestIdRef.current) return;
       console.error("Erro ao buscar dados:", err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
     } finally {
-      setIsLoading(false);
-      isInitialLoadRef.current = false;
-      console.log("Sistema pronto para sincronização.");
-      processPendingSync();
+      if (requestId === fetchRequestIdRef.current) {
+        setIsLoading(false);
+        isInitialLoadRef.current = false;
+        console.log("Sistema pronto para sincronização.");
+        processPendingSync();
+      }
     }
   }, [processPendingSync]);
 
