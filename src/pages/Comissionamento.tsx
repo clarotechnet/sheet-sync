@@ -52,10 +52,13 @@ const Comissionamento: React.FC = () => {
           clearFilters={hook.clearFilters}
           uniqueCidades={hook.uniqueCidades}
           uniqueNomes={hook.uniqueNomes}
+          tecnicoNomes={hook.tecnicoNomes}
+          tecnicosFrente={hook.tecnicosFrente}
           uniqueFrente={hook.uniqueFrente}
           totalFiltered={hook.data.length}
           onImport={hook.importExcel}
           onManualSubmit={hook.submitManualEntry}
+          onAddTecnico={hook.addTecnicoFrente}
           isLoading={hook.isLoading}
           filteredData={hook.data}
         />

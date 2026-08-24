@@ -3,14 +3,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, Plus, Minus } from 'lucide-react';
+import { Loader2, CheckCircle, Plus, Minus, Check, ChevronsUpDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import { TecnicoFrente } from '@/types/comissionamento';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: Record<string, any>) => Promise<void>;
   uniqueNomes: string[];
+  loginOptions: string[];
   uniqueCidades: string[];
+  tecnicosFrente: TecnicoFrente[];
 }
 
 const STATUS_OPTIONS = ['PENDENTE', 'CONFIRMADA', 'CANCELADA'];
@@ -22,21 +35,56 @@ const emptyForm = {
   mes_ano_proposta: '', status: 'PENDENTE'
 };
 
-export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSubmit, uniqueNomes, uniqueCidades }) => {
+export const ComissionamentoFormDialog: React.FC<Props> = ({
+  open,
+  onClose,
+  onSubmit,
+  uniqueNomes,
+  loginOptions,
+  uniqueCidades,
+  tecnicosFrente,
+}) => {
   const [form, setForm] = useState({ ...emptyForm });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [nomeOpen, setNomeOpen] = useState(false);
 
   const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const tecnicoSelecionado = tecnicosFrente.find((tecnico) =>
+    tecnico.nome.trim().toLocaleUpperCase('pt-BR') === form.nome.trim().toLocaleUpperCase('pt-BR')
+  );
+  const cidadeAtrelada = tecnicoSelecionado?.cidade?.trim() || '';
+
+  const selectNome = (nome: string) => {
+    const tecnico = tecnicosFrente.find((item) =>
+      item.nome.trim().toLocaleUpperCase('pt-BR') === nome.trim().toLocaleUpperCase('pt-BR')
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      nome: tecnico?.nome || nome,
+      alocacao: tecnico?.cidade?.trim() || '',
+    }));
+    setNomeOpen(false);
+    setError('');
+  };
 
 
   const requiredFields = ['nome', 'login_criador', 'alocacao', 'data', 'tipo_venda', 'proposta', 'data_envio_grupo', 'contrato', 'valores', 'data_agen', 'data_exec', 'status'];
 
-  const isValid = requiredFields.every(f => (form as any)[f]?.toString().trim());
+  const nomeValido = uniqueNomes.some((nome) =>
+    nome.trim().toLocaleUpperCase('pt-BR') === form.nome.trim().toLocaleUpperCase('pt-BR')
+  );
+  const isValid = requiredFields.every(f => (form as any)[f]?.toString().trim()) && nomeValido;
 
   const handleSubmit = async () => {
+    if (!nomeValido) {
+      setError('Selecione um colaborador cadastrado em tecnicos_frentes.');
+      return;
+    }
     if (!isValid) { setError('Preencha todos os campos obrigatórios.'); return; }
     setSubmitting(true);
     setError('');
@@ -96,10 +144,47 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
           
               <div className="space-y-1">
                 <Label className="text-sm font-medium">Nome *</Label>
-                <Input list="nomes-list" placeholder="Digite ou selecione..." value={form.nome} onChange={e => set('nome', e.target.value)} />
-                <datalist id="nomes-list">
-                  {uniqueNomes.map(n => <option key={n} value={n} />)}
-                </datalist>
+                <Popover open={nomeOpen} onOpenChange={setNomeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={nomeOpen}
+                      className="w-full h-10 justify-between px-3 font-normal"
+                    >
+                      <span className={cn('truncate', !form.nome && 'text-muted-foreground')}>
+                        {form.nome || 'Selecione um colaborador...'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar colaborador..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum colaborador cadastrado.</CommandEmpty>
+                        <CommandGroup>
+                          {uniqueNomes.map((nome) => (
+                            <CommandItem
+                              key={nome}
+                              value={nome}
+                              onSelect={() => selectNome(nome)}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  form.nome === nome ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                              {nome}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* LOGIN CRIADOR - datalist for suggestions + free typing */}
@@ -107,14 +192,19 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({ open, onClose, onSu
                 <Label className="text-sm font-medium">Login Criador *</Label>
                 <Input list="logins-list" placeholder="Digite ou selecione..." value={form.login_criador} onChange={e => set('login_criador', e.target.value)} />
                 <datalist id="logins-list">
-                  {uniqueNomes.map(n => <option key={n} value={n} />)}
+                  {loginOptions.map(n => <option key={n} value={n} />)}
                 </datalist>
               </div>
 
               {/* ALOCAÇÃO - select */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium">Alocação *</Label>
-                <select className={selectClass} value={form.alocacao} onChange={e => set('alocacao', e.target.value)}>
+                <select
+                  className={selectClass}
+                  value={form.alocacao}
+                  onChange={e => set('alocacao', e.target.value)}
+                  disabled={Boolean(cidadeAtrelada)}
+                >
                   <option value="">Selecione...</option>
                   {uniqueCidades.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

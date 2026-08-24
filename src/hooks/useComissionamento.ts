@@ -117,7 +117,9 @@ export function useComissionamento() {
         .from('tecnicos_frentes')
         .select('*');
 
-      if (!frentesError && frentes) {
+      if (frentesError) throw frentesError;
+
+      if (frentes) {
         setTecnicosFrente(frentes as TecnicoFrente[]);
 
         // Map frente to comissionamento data by nome
@@ -303,15 +305,29 @@ export function useComissionamento() {
     return result;
   }, [data, filters]);
   //ondepegar od dados
-  const uniqueCidades = useMemo(() =>
-    [...new Set(data.map(r => r.alocacao).filter(Boolean))].sort() as string[],
-    [data]
-  );
+  const uniqueCidades = useMemo(() => {
+    const cidades = [
+      ...data.map(r => r.alocacao),
+      ...tecnicosFrente.map(t => t.cidade),
+    ].filter(Boolean) as string[];
+
+    return [...new Set(cidades)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [data, tecnicosFrente]);
 
   const uniqueNomes = useMemo(() =>
     [...new Set(data.map(r => r.nome).filter(Boolean))].sort() as string[],
     [data]
   );
+
+  const tecnicoNomes = useMemo(() => {
+    const nomes = new Map<string, string>();
+    tecnicosFrente.forEach((tecnico) => {
+      const nome = tecnico.nome?.trim();
+      if (nome) nomes.set(nome.toLocaleUpperCase('pt-BR'), nome);
+    });
+
+    return [...nomes.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [tecnicosFrente]);
 
   const uniqueFrente = useMemo(() =>
     [...new Set(tecnicosFrente.map(t => t.frente).filter(Boolean))].sort() as string[],
@@ -451,17 +467,56 @@ export function useComissionamento() {
     }).sort((a, b) => b.qtdConsultivo - a.qtdConsultivo);
   }, [filteredData, tecnicosFrente, filters.cidade]);
 
+  const addTecnicoFrente = useCallback(async (
+    novoTecnico: Omit<TecnicoFrente, 'id'>
+  ): Promise<TecnicoFrente> => {
+    const nome = novoTecnico.nome.trim().replace(/\s+/g, ' ');
+    const nomeNormalizado = nome.toLocaleUpperCase('pt-BR');
+
+    if (tecnicosFrente.some((tecnico) =>
+      tecnico.nome.trim().toLocaleUpperCase('pt-BR') === nomeNormalizado
+    )) {
+      throw new Error('Este colaborador já está cadastrado em tecnicos_frentes.');
+    }
+
+    const payload: Omit<TecnicoFrente, 'id'> = {
+      nome,
+      frente: novoTecnico.frente.trim(),
+      cidade: novoTecnico.cidade?.trim() || null,
+    };
+
+    const { data: inserted, error: insertError } = await externalSupabase
+      .from('tecnicos_frentes')
+      .insert(payload)
+      .select('id, nome, frente, cidade')
+      .single();
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        throw new Error('Este colaborador já está cadastrado em tecnicos_frentes.');
+      }
+      throw insertError;
+    }
+
+    const tecnico = inserted as TecnicoFrente;
+    setTecnicosFrente((current) =>
+      [...current, tecnico].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    );
+    return tecnico;
+  }, [tecnicosFrente]);
+
   const submitManualEntry = useCallback(async (formData: Record<string, any>) => {
-    // Enrich with frente
-    const { data: frentes } = await externalSupabase.from('tecnicos_frentes').select('nome, frente');
-    let frente: string | null = null;
-    if (frentes) {
-      const match = frentes.find((tf: any) => (tf.nome || '').trim().toUpperCase() === (formData.nome || '').trim().toUpperCase());
-      if (match) frente = match.frente;
+    const nomeNormalizado = (formData.nome || '').trim().toLocaleUpperCase('pt-BR');
+    const tecnico = tecnicosFrente.find((item) =>
+      item.nome.trim().toLocaleUpperCase('pt-BR') === nomeNormalizado
+    );
+
+    if (!tecnico) {
+      throw new Error('Selecione um colaborador cadastrado em tecnicos_frentes.');
     }
 
     const record: any = {
-      nome: formData.nome,
+      nome: tecnico.nome,
       login_criador: formData.login_criador,
       alocacao: formData.alocacao,
       data: formData.data || null,
@@ -478,7 +533,7 @@ export function useComissionamento() {
       pagamento: formData.pagamento || null,
       mes_ano_proposta: formData.mes_ano_proposta || null,
       status: formData.status || 'PENDENTE',
-      frente,
+      frente: tecnico.frente,
       row_hash: `manual_${Date.now()}_${Math.random().toString(36).slice(2)}`
     };
 
@@ -486,7 +541,7 @@ export function useComissionamento() {
     if (insertError) throw insertError;
 
     await fetchData();
-  }, [fetchData]);
+  }, [fetchData, tecnicosFrente]);
   const updateRecord = useCallback(async (id: string, updates: Partial<ComissionamentoData>) => {
     const { error: updateError } = await externalSupabase
       .from('comissionamento')
@@ -516,10 +571,12 @@ export function useComissionamento() {
     fetchData,
     importExcel,
     submitManualEntry,
+    addTecnicoFrente,
     updateRecord,
     deleteRecord,
     uniqueCidades,
     uniqueNomes,
+    tecnicoNomes,
     uniqueFrente,
     kpis,
     chartData,
