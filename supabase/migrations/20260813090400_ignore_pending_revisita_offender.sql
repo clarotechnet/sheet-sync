@@ -1,10 +1,10 @@
--- Ajuste complementar da regra de instalacao:
--- todo Retorno Credenciada e uma revisita, mesmo quando o historico anterior
--- nao estiver disponivel no banco dentro da janela de 30 dias.
+-- Corrige a escolha do tecnico ofensor da cadeia de instalacao.
 --
--- A janela de 30 dias continua sendo usada para identificar o tecnico da
--- atividade imediatamente anterior. Sem esse historico, tecnico_referencia e
--- usado como fallback. A regra existente de Visita Tecnica e preservada.
+-- Todo Retorno Credenciada continua sendo uma revisita. Para escolher o
+-- ofensor, somente atividades anteriores concluidas ou nao concluidas podem
+-- participar. Pendente, cancelado e iniciado nao podem substituir o ultimo
+-- atendimento valido. Sem historico valido no banco, tecnico_referencia
+-- continua sendo usado como fallback.
 
 set local statement_timeout = '0';
 
@@ -187,8 +187,7 @@ begin
 end;
 $$;
 
--- Backfill apenas dos Retornos Credenciada. Todos ficam marcados; a busca
--- lateral existe somente para escolher corretamente o tecnico ofensor.
+-- Recalcula os ofensores de todos os Retornos Credenciada existentes.
 with retornos as (
   select
     a.id,
@@ -260,20 +259,17 @@ for each row
 execute function public.fn_calc_revisita();
 
 comment on function public.fn_calc_revisita() is
-'Preserva a regra de Visita Tecnica e marca todo Retorno Credenciada como revisita, atribuindo o tecnico anterior ou tecnico_referencia.';
+'Preserva Visita Tecnica e marca todo Retorno Credenciada; o ofensor e o tecnico da ultima atividade concluida ou nao concluida da cadeia em ate 30 dias, com fallback em tecnico_referencia.';
 
--- Validacao depois da execucao:
+-- Validacao especifica do contrato reportado:
 -- select
---   count(*) filter (where tipo_atividade = 'Retorno Credenciada') as retornos,
---   count(*) filter (
---     where tipo_atividade = 'Retorno Credenciada'
---       and is_revisita = true
---   ) as retornos_marcados,
---   count(*) filter (
---     where tipo_atividade = 'Retorno Credenciada'
---       and is_revisita = true
---       and nullif(btrim(ofensor_revisita), '') is null
---   ) as retornos_sem_ofensor
+--   contrato,
+--   data_atividade,
+--   recurso,
+--   status_atividade,
+--   tipo_atividade,
+--   is_revisita,
+--   ofensor_revisita
 -- from public.atividades
--- where data_atividade between date '2026-08-01' and date '2026-08-11'
---   and cidade in ('NATAL', 'PARNAMIRIM');
+-- where contrato = '4223919'
+-- order by data_atividade, created_at, id;

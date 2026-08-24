@@ -113,6 +113,12 @@ begin
             'instalacao',
             'retorno credenciada'
           )
+          and lower(btrim(coalesce(p.status_atividade, ''))) in (
+            'concluído',
+            'concluido',
+            'não concluído',
+            'nao concluido'
+          )
         order by
           p.data_atividade desc,
           p.created_at desc nulls last,
@@ -261,6 +267,12 @@ resultado as (
         'instalação',
         'instalacao',
         'retorno credenciada'
+      )
+      and lower(btrim(coalesce(p.status_atividade, ''))) in (
+        'concluído',
+        'concluido',
+        'não concluído',
+        'nao concluido'
       )
     order by
       p.data_atividade desc,
