@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ComissionamentoData } from '@/types/comissionamento';
+import { ColaboradorCadastrado, ComissionamentoData, TecnicoFrente } from '@/types/comissionamento';
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComissionamentoEditDialog } from './ComissionamentoEditDialog';
@@ -8,11 +8,14 @@ interface Props {
   data: ComissionamentoData[];
   onUpdate: (id: string, updates: Partial<ComissionamentoData>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  colaboradores: ColaboradorCadastrado[];
+  tecnicosFrente: TecnicoFrente[];
   uniqueNomes: string[];
   uniqueCidades: string[];
 }
 
 const PAGE_SIZE = 50;
+type SortField = keyof ComissionamentoData;
 
 const formatDate = (val: string | null) => {
   if (!val) return '-';
@@ -31,17 +34,25 @@ const statusColor = (s: string | null) => {
   }
 };
 
-export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, onDelete, uniqueNomes, uniqueCidades }) => {
+export const ComissionamentoTable: React.FC<Props> = ({
+  data,
+  onUpdate,
+  onDelete,
+  colaboradores,
+  tecnicosFrente,
+  uniqueNomes,
+  uniqueCidades,
+}) => {
   const [page, setPage] = useState(0);
-  const [sortField, setSortField] = useState<string>('nome');
+  const [sortField, setSortField] = useState<SortField>('nome');
   const [sortAsc, setSortAsc] = useState(true);
   const [editRecord, setEditRecord] = useState<ComissionamentoData | null>(null);
 
   const sorted = useMemo(() => {
     const arr = [...data];
     arr.sort((a, b) => {
-      const va = (a as any)[sortField] || '';
-      const vb = (b as any)[sortField] || '';
+      const va = a[sortField] || '';
+      const vb = b[sortField] || '';
       if (va < vb) return sortAsc ? -1 : 1;
       if (va > vb) return sortAsc ? 1 : -1;
       return 0;
@@ -52,13 +63,13 @@ export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, onDelete
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const pageData = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const handleSort = (field: string) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) setSortAsc(!sortAsc);
     else { setSortField(field); setSortAsc(true); }
   };
 
 
-  const columns = [
+  const columns: Array<{ key: 'actions' | SortField; label: string }> = [
     { key: 'actions', label: '' },
     { key: 'nome', label: 'Nome' },
     { key: 'alocacao', label: 'Cidade/Alocação' },
@@ -160,6 +171,8 @@ export const ComissionamentoTable: React.FC<Props> = ({ data, onUpdate, onDelete
         onSave={onUpdate}
         onDelete={onDelete}
         record={editRecord}
+        colaboradores={colaboradores}
+        tecnicosFrente={tecnicosFrente}
         uniqueNomes={uniqueNomes}
         uniqueCidades={uniqueCidades}
       />

@@ -3,8 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, Trash2 } from 'lucide-react';
-import { ComissionamentoData } from '@/types/comissionamento';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Check, CheckCircle, ChevronsUpDown, Loader2, Trash2 } from 'lucide-react';
+import { ColaboradorCadastrado, ComissionamentoData, TecnicoFrente } from '@/types/comissionamento';
+import { cn } from '@/lib/utils';
+import { normalizePersonName } from '@/utils/normalizeName';
 
 interface Props {
   open: boolean;
@@ -12,6 +23,8 @@ interface Props {
   onSave: (id: string, data: Partial<ComissionamentoData>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   record: ComissionamentoData | null;
+  colaboradores: ColaboradorCadastrado[];
+  tecnicosFrente: TecnicoFrente[];
   uniqueNomes: string[];
   uniqueCidades: string[];
 }
@@ -24,7 +37,17 @@ const formatDateForInput = (val: string | null) => {
   return match ? val.substring(0, 10) : '';
 };
 
-export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSave, onDelete, record, uniqueNomes, uniqueCidades }) => {
+export const ComissionamentoEditDialog: React.FC<Props> = ({
+  open,
+  onClose,
+  onSave,
+  onDelete,
+  record,
+  colaboradores,
+  tecnicosFrente,
+  uniqueNomes,
+  uniqueCidades,
+}) => {
   const [form, setForm] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -32,6 +55,7 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
   const [successMsg, setSuccessMsg] = useState('');
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [nomeOpen, setNomeOpen] = useState(false);
 
   useEffect(() => {
     if (record) {
@@ -57,18 +81,54 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
       setError('');
       setSuccess(false);
       setConfirmDelete(false);
+      setNomeOpen(false);
     }
   }, [record]);
 
   const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const selectNome = (colaborador: ColaboradorCadastrado) => {
+    const tecnico = tecnicosFrente.find(
+      (item) => normalizePersonName(item.nome) === normalizePersonName(colaborador.nome),
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      nome: colaborador.nome,
+      alocacao: tecnico?.cidade?.trim() || prev.alocacao,
+    }));
+    setNomeOpen(false);
+    setError('');
+  };
+
   const handleSave = async () => {
     if (!record?.id) return;
+
+    const nomeNormalizado = normalizePersonName(form.nome);
+    const nomeOriginalNormalizado = normalizePersonName(record.nome);
+    const colaborador = colaboradores.find(
+      (item) => normalizePersonName(item.nome) === nomeNormalizado,
+    );
+    const nomeFoiAlterado = nomeNormalizado !== nomeOriginalNormalizado;
+
+    if (!form.nome?.trim()) {
+      setError('Selecione um colaborador.');
+      return;
+    }
+
+    if (nomeFoiAlterado && !colaborador) {
+      setError('Selecione um nome da lista de colaboradores cadastrados.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
     try {
+      const tecnico = tecnicosFrente.find(
+        (item) => normalizePersonName(item.nome) === normalizePersonName(colaborador?.nome),
+      );
       const updates: Partial<ComissionamentoData> = {
-        nome: form.nome,
+        nome: colaborador?.nome || form.nome.trim(),
         login_criador: form.login_criador || null,
         alocacao: form.alocacao || null,
         data: form.data || null,
@@ -77,25 +137,23 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
         proposta: form.proposta || null,
         data_envio_grupo: form.data_envio_grupo || null,
         contrato: form.contrato || null,
-        valores: form.valores ? parseFloat(form.valores.replace(/[^\d.,\-]/g, '').replace(',', '.')) : null,
+        valores: form.valores ? parseFloat(form.valores.replace(/[^\d.,-]/g, '').replace(',', '.')) : null,
         data_agen: form.data_agen || null,
         data_exec: form.data_exec || null,
         observacoes: form.observacoes || null,
         janela: form.janela || null,
         pagamento: form.pagamento || null,
         mes_ano_proposta: form.mes_ano_proposta || null,
-        status: (form.status as any) || 'PENDENTE',
+        status: (form.status as ComissionamentoData['status']) || 'PENDENTE',
       };
+      if (nomeFoiAlterado) updates.frente = tecnico?.frente || null;
+
       await onSave(record.id, updates);
       setSuccessMsg('Registro atualizado com sucesso!');
       setSuccess(true);
       setTimeout(() => { setSuccess(false); onClose(); }, 1200);
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-      }, 1200);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao salvar');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setSubmitting(false);
     }
@@ -114,8 +172,8 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
       setSuccessMsg('Registro excluído com sucesso!');
       setSuccess(true);
       setTimeout(() => { setSuccess(false); onClose(); }, 1200);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao excluir');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir');
     } finally {
       setDeleting(false);
       setConfirmDelete(false);
@@ -140,11 +198,55 @@ export const ComissionamentoEditDialog: React.FC<Props> = ({ open, onClose, onSa
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div className="space-y-1">
-                <Label className="text-sm font-medium">Nome</Label>
-                <Input list="edit-nomes" value={form.nome} onChange={e => set('nome', e.target.value)} />
-                <datalist id="edit-nomes">
-                  {uniqueNomes.map(n => <option key={n} value={n} />)}
-                </datalist>
+                <Label className="text-sm font-medium">Nome *</Label>
+                <Popover open={nomeOpen} onOpenChange={setNomeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={nomeOpen}
+                      className="h-10 w-full justify-between px-3 font-normal"
+                    >
+                      <span className={cn('truncate', !form.nome && 'text-muted-foreground')}>
+                        {form.nome || 'Selecione um colaborador...'}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar colaborador..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum colaborador cadastrado.</CommandEmpty>
+                        <CommandGroup>
+                          {colaboradores.map((colaborador) => (
+                            <CommandItem
+                              key={colaborador.id}
+                              value={`${colaborador.nome} ${colaborador.cpf} ${colaborador.setor}`}
+                              onSelect={() => selectNome(colaborador)}
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  normalizePersonName(form.nome) === normalizePersonName(colaborador.nome)
+                                    ? 'opacity-100'
+                                    : 'opacity-0',
+                                )}
+                              />
+                              <span className="min-w-0">
+                                <span className="block truncate">{colaborador.nome}</span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {colaborador.setor}
+                                </span>
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1">

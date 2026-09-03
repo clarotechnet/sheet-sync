@@ -108,6 +108,8 @@ const Comissionamento: React.FC = () => {
                   data={hook.data}
                   onUpdate={hook.updateRecord}
                   onDelete={hook.deleteRecord}
+                  colaboradores={hook.colaboradores}
+                  tecnicosFrente={hook.tecnicosFrente}
                   uniqueNomes={hook.uniqueNomes}
                   uniqueCidades={hook.uniqueCidades}
                 />
