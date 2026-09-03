@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  onlineUsers: number;
   isLoading: boolean;
   isAdmin: boolean;
   isApproved: boolean;
@@ -28,10 +29,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [onlineUsers, setOnlineUsers] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const profileRef = useRef<Profile | null>(null);
 
@@ -66,6 +71,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  useEffect(() => {
+    if (!user?.id || !profile?.approved) {
+      setOnlineUsers(0);
+      return;
+    }
+
+    const channel = externalSupabase.channel('technet-online-users', {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    const syncOnlineUsers = () => {
+      setOnlineUsers(Object.keys(channel.presenceState()).length);
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, syncOnlineUsers)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      setOnlineUsers(0);
+      void channel.untrack().finally(() => externalSupabase.removeChannel(channel));
+    };
+  }, [profile?.approved, user?.id]);
 
   useEffect(() => {
     // Set up auth state listener BEFORE getting session
@@ -140,11 +177,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ok: true,
         message: 'Cadastro realizado! Aguarde aprovação do administrador para acessar.',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro no cadastro:', error);
       return {
         ok: false,
-        message: error.message || 'Erro ao realizar cadastro',
+        message: getErrorMessage(error, 'Erro ao realizar cadastro'),
       };
     }
   };
@@ -180,11 +217,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return { ok: true, message: 'Login realizado com sucesso!' };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro no login:', error);
       return {
         ok: false,
-        message: error.message || 'Erro ao realizar login',
+        message: getErrorMessage(error, 'Erro ao realizar login'),
       };
     }
   };
@@ -206,11 +243,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ok: true,
         message: 'Email de recuperação enviado! Verifique sua caixa de entrada.',
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao enviar email de recuperação:', error);
       return {
         ok: false,
-        message: error.message || 'Erro ao enviar email de recuperação.',
+        message: getErrorMessage(error, 'Erro ao enviar email de recuperação.'),
       };
     }
   };
@@ -224,6 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         profile,
+        onlineUsers,
         isLoading,
         isAdmin,
         isApproved,

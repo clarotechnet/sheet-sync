@@ -1,14 +1,17 @@
 import React, { useMemo, useCallback } from 'react';
-import { ComissionamentoData } from '@/types/comissionamento';
+import { ColaboradorCadastrado, ComissionamentoData } from '@/types/comissionamento';
 import { Button } from '@/components/ui/button';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { normalizePersonName } from '@/utils/normalizeName';
 import * as XLSX from 'xlsx';
 
 interface ComissionamentoValoresProps {
   data: ComissionamentoData[];
+  colaboradores: ColaboradorCadastrado[];
 }
 
-export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ data }) => {
+export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ data, colaboradores }) => {
   const valoresData = useMemo(() => {
     const map = new Map<string, { nome: string; cidade: string; contratos: number; total: number }>();
 
@@ -28,6 +31,34 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
 
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [data]);
+
+  const reportRows = useMemo(() => {
+    const colaboradoresByName = new Map(
+      colaboradores.map((colaborador) => [normalizePersonName(colaborador.nome), colaborador]),
+    );
+    const totalsByName = new Map<string, { nome: string; valor: number }>();
+
+    data.forEach((row) => {
+      const key = normalizePersonName(row.nome);
+      if (!key) return;
+      const current = totalsByName.get(key) || { nome: row.nome, valor: 0 };
+      current.valor += row.valores || 0;
+      totalsByName.set(key, current);
+    });
+
+    return Array.from(totalsByName.entries())
+      .map(([key, total]) => {
+        const colaborador = colaboradoresByName.get(key);
+        return {
+          Nome: colaborador?.nome || total.nome,
+          CPF: colaborador?.cpf || '',
+          Setor: colaborador?.setor || '',
+          Valor: total.valor,
+          matched: Boolean(colaborador),
+        };
+      })
+      .sort((a, b) => Number(b.matched) - Number(a.matched) || a.Nome.localeCompare(b.Nome, 'pt-BR'));
+  }, [colaboradores, data]);
 
   const exportToExcel = useCallback(() => {
     if (valoresData.length === 0) return;
@@ -52,6 +83,42 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
     XLSX.utils.book_append_sheet(wb, ws, 'Valores');
     XLSX.writeFile(wb, 'comissionamento_valores.xlsx');
   }, [valoresData]);
+
+  const generateCpfReport = useCallback(() => {
+    if (reportRows.length === 0) return;
+
+    const rows = reportRows.map(({ Nome, CPF, Setor, Valor }) => ({
+      Nome,
+      CPF,
+      Setor,
+      Valor,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 42 },
+      { wch: 16 },
+      { wch: 42 },
+      { wch: 16 },
+    ];
+
+    for (let row = 2; row <= rows.length + 1; row += 1) {
+      const cell = worksheet[`D${row}`];
+      if (cell) cell.z = 'R$ #,##0.00';
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório CPF');
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `relatorio_comissionamento_cpf_${date}.xlsx`);
+
+    const unmatched = reportRows.filter((row) => !row.matched).length;
+    toast({
+      title: 'Relatório gerado',
+      description: unmatched > 0
+        ? `${unmatched} nome(s) não foram encontrados no cadastro e ficaram sem CPF e setor.`
+        : 'Todos os nomes foram vinculados a CPF e setor.',
+    });
+  }, [reportRows]);
 
    const exportToPDF = useCallback(() => {
     if (valoresData.length === 0) return;
@@ -104,8 +171,17 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
   }, [valoresData]);
 
   return (
-    <div className="space-y-4">
+      <div className="space-y-4">
        <div className="flex justify-end gap-2">
+        <Button
+          onClick={generateCpfReport}
+          disabled={reportRows.length === 0}
+          size="sm"
+          className="gap-2 bg-[#e31325] hover:bg-[#bd1020]"
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Gerar relatório
+        </Button>
         <Button
           onClick={exportToPDF}
           disabled={valoresData.length === 0}

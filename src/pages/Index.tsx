@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DashboardProvider, useDashboard } from '@/contexts/DashboardContext';
-import { Header } from '@/components/dashboard/Header';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { Filters } from '@/components/dashboard/Filters';
 import { KPICards } from '@/components/dashboard/KPICards';
@@ -14,6 +13,9 @@ import { MapSection } from '@/components/dashboard/MapSection';
 import { LogsTable } from '@/components/dashboard/LogsTable';
 import { RevisitasTable } from '@/components/dashboard/RevisitasTable';
 import { RevisitasRanking } from '@/components/dashboard/RevisitasRanking';
+import { AppShell } from '@/components/layout/AppShell';
+import { Button } from '@/components/ui/button';
+import { CalendarDays, RefreshCw } from 'lucide-react';
 
 const TABS = [
   { id: 'summary', label: 'Resumo' },
@@ -28,16 +30,42 @@ const TABS = [
 ];
 
 const DashboardContent: React.FC = () => {
-  const { allData, isLoading, isSyncing, error } = useDashboard();
-  const [activeTab, setActiveTab] = useState('kpis');
+  const { allData, isLoading, isSyncing, error, refreshData } = useDashboard();
+  const [activeTab, setActiveTab] = useState('summary');
 
   const hasData = allData.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="max-w-[auto] mx-auto p-8 space-y-8">
+    <AppShell>
+      <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <div className="mx-auto max-w-[1800px] space-y-6">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">Sistema de Gestão</h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">Atividades, produtividade, indicadores e acompanhamento operacional</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="hidden items-center gap-2 text-sm font-medium text-slate-500 sm:flex">
+                <CalendarDays className="h-4 w-4" />
+                <span className="capitalize">
+                  {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                </span>
+              </div>
+              <Button variant="outline" onClick={refreshData} disabled={isLoading || isSyncing}>
+                <RefreshCw className={(isLoading || isSyncing) ? 'animate-spin' : ''} />
+                {isSyncing ? 'Sincronizando...' : 'Atualizar'}
+              </Button>
+            </div>
+          </div>
+
+          {hasData && (
+            <TabNavigation
+              tabs={TABS}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          )}
+
         {/* Status de sincronização */}
         {/* {isSyncing && (
           <div className="alert alert-warning">
@@ -49,7 +77,7 @@ const DashboardContent: React.FC = () => {
         {/* Erro */}
         {error && (
           <div className="alert alert-error">
-            <span>⚠️ {error} - Faça upload de um arquivo para começar.</span>
+            <span>{error} - Faça upload de um arquivo para começar.</span>
           </div>
         )}
 
@@ -66,13 +94,6 @@ const DashboardContent: React.FC = () => {
           <>
             {/* Filtros */}
             <Filters />
-
-            {/* Tabs */}
-            <TabNavigation 
-              tabs={TABS} 
-              activeTab={activeTab} 
-              onTabChange={setActiveTab} 
-            />
 
             {/* Conteúdo das Tabs */}
             <div className="tab-content">
@@ -97,8 +118,9 @@ const DashboardContent: React.FC = () => {
             </p>
           </div>
         )}
+        </div>
       </main>
-    </div>
+    </AppShell>
   );
 };
 

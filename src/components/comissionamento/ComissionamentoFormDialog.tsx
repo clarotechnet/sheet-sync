@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { TecnicoFrente } from '@/types/comissionamento';
+import { normalizePersonName } from '@/utils/normalizeName';
 
 interface Props {
   open: boolean;
@@ -54,13 +55,13 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({
   const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
   const tecnicoSelecionado = tecnicosFrente.find((tecnico) =>
-    tecnico.nome.trim().toLocaleUpperCase('pt-BR') === form.nome.trim().toLocaleUpperCase('pt-BR')
+    normalizePersonName(tecnico.nome) === normalizePersonName(form.nome)
   );
   const cidadeAtrelada = tecnicoSelecionado?.cidade?.trim() || '';
 
   const selectNome = (nome: string) => {
     const tecnico = tecnicosFrente.find((item) =>
-      item.nome.trim().toLocaleUpperCase('pt-BR') === nome.trim().toLocaleUpperCase('pt-BR')
+      normalizePersonName(item.nome) === normalizePersonName(nome)
     );
 
     setForm((prev) => ({
@@ -76,13 +77,13 @@ export const ComissionamentoFormDialog: React.FC<Props> = ({
   const requiredFields = ['nome', 'login_criador', 'alocacao', 'data', 'tipo_venda', 'proposta', 'data_envio_grupo', 'contrato', 'valores', 'data_agen', 'data_exec', 'status'];
 
   const nomeValido = uniqueNomes.some((nome) =>
-    nome.trim().toLocaleUpperCase('pt-BR') === form.nome.trim().toLocaleUpperCase('pt-BR')
+    normalizePersonName(nome) === normalizePersonName(form.nome)
   );
   const isValid = requiredFields.every(f => (form as any)[f]?.toString().trim()) && nomeValido;
 
   const handleSubmit = async () => {
     if (!nomeValido) {
-      setError('Selecione um colaborador cadastrado em tecnicos_frentes.');
+      setError('Selecione um nome da lista de colaboradores cadastrados.');
       return;
     }
     if (!isValid) { setError('Preencha todos os campos obrigatórios.'); return; }

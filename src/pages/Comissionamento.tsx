@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { useComissionamento } from '@/hooks/useComissionamento';
-import { ComissionamentoHeader } from '@/components/comissionamento/ComissionamentoHelder';
 import { ComissionamentoFilters } from '@/components/comissionamento/ComissionamentoFilters';
 import { ComissionamentoKPIs } from '@/components/comissionamento/ComissionamentoKPIs';
 import { ComissionamentoCharts } from '@/components/comissionamento/ComissionamentoCharts';
@@ -12,6 +9,9 @@ import { ComissionamentoFrentes } from '@/components/comissionamento/Comissionam
 import { ComissionamentoValores } from '@/components/comissionamento/ComissionamentoValores';
 import { TabNavigation } from '@/components/dashboard/TabNavigation';
 import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
+import { AppShell } from '@/components/layout/AppShell';
+import { Button } from '@/components/ui/button';
+import { CalendarDays, RefreshCw } from 'lucide-react';
 
 const TABS = [
   { id: 'kpis', label: 'KPIs' },
@@ -22,25 +22,46 @@ const TABS = [
 ];
 
 const Comissionamento: React.FC = () => {
-  const navigate = useNavigate();
-  const { signOut, profile } = useAuth();
   const hook = useComissionamento();
+  const { fetchData } = hook;
   const [activeTab, setActiveTab] = useState('kpis');
 
   useEffect(() => {
-    hook.fetchData();
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   const hasData = hook.allData.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <ComissionamentoHeader />
+    <AppShell>
+      <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <div className="mx-auto max-w-[1700px] space-y-6">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-950 sm:text-3xl">Comissionamento Técnico</h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">Controle de comissões, frentes e valores dos técnicos</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="hidden items-center gap-2 text-sm font-medium text-slate-500 sm:flex">
+                <CalendarDays className="h-4 w-4" />
+                <span className="capitalize">
+                  {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                </span>
+              </div>
+              <Button variant="outline" onClick={fetchData} disabled={hook.isLoading}>
+                <RefreshCw className={hook.isLoading ? 'animate-spin' : ''} />
+                Atualizar
+              </Button>
+            </div>
+          </div>
 
-      <main className="max-w-[1400px] mx-auto p-8 space-y-8">
+          {hasData && (
+            <TabNavigation tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+          )}
+
         {hook.error && (
           <div className="alert alert-error">
-            <span>⚠️ {hook.error}</span>
+            <span>{hook.error}</span>
           </div>
         )}
 
@@ -58,7 +79,6 @@ const Comissionamento: React.FC = () => {
           totalFiltered={hook.data.length}
           onImport={hook.importExcel}
           onManualSubmit={hook.submitManualEntry}
-          onAddTecnico={hook.addTecnicoFrente}
           isLoading={hook.isLoading}
           filteredData={hook.data}
         />
@@ -69,10 +89,6 @@ const Comissionamento: React.FC = () => {
 
         {hasData && (
           <>
-
-
-            <TabNavigation tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
-
             <div className="tab-content">
               {activeTab === 'kpis' && <ComissionamentoKPIs kpis={hook.kpis} />}
               {activeTab === 'charts' && (
@@ -97,7 +113,7 @@ const Comissionamento: React.FC = () => {
                 />
               )}
               {activeTab === 'valores' && (
-                <ComissionamentoValores data={hook.data} />
+                <ComissionamentoValores data={hook.data} colaboradores={hook.colaboradores} />
               )}
             </div>
           </>
@@ -110,8 +126,9 @@ const Comissionamento: React.FC = () => {
             </p>
           </div>
         )}
+        </div>
       </main>
-    </div>
+    </AppShell>
   );
 };
 

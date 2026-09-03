@@ -1,6 +1,13 @@
 import { useState, useCallback, useMemo } from 'react';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
-import { ComissionamentoData, ComissionamentoFilters, TecnicoFrente, FrenteKPIData } from '@/types/comissionamento';
+import {
+  ColaboradorCadastrado,
+  ComissionamentoData,
+  ComissionamentoFilters,
+  FrenteKPIData,
+  TecnicoFrente,
+} from '@/types/comissionamento';
+import { normalizePersonName } from '@/utils/normalizeName';
 import * as XLSX from 'xlsx';
 
 // Generate a hash from row fields INCLUDING row index to keep "duplicate" rows
@@ -69,6 +76,7 @@ function parseValor(val: string | undefined | null): number | null {
 export function useComissionamento() {
   const [data, setData] = useState<ComissionamentoData[]>([]);
   const [tecnicosFrente, setTecnicosFrente] = useState<TecnicoFrente[]>([]);
+  const [colaboradores, setColaboradores] = useState<ColaboradorCadastrado[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ComissionamentoFilters>({
@@ -112,12 +120,21 @@ export function useComissionamento() {
         }
       }
 
-      // Fetch tecnicos_frentes
-      const { data: frentes, error: frentesError } = await externalSupabase
-        .from('tecnicos_frentes')
-        .select('*');
+      const [frentesResult, colaboradoresResult] = await Promise.all([
+        externalSupabase.from('tecnicos_frentes').select('*'),
+        externalSupabase
+          .from('colaboradores_cadastrados')
+          .select('id, nome, cpf, setor')
+          .order('nome', { ascending: true }),
+      ]);
+
+      const { data: frentes, error: frentesError } = frentesResult;
+      const { data: colaboradoresData, error: colaboradoresError } = colaboradoresResult;
 
       if (frentesError) throw frentesError;
+      if (colaboradoresError) throw colaboradoresError;
+
+      setColaboradores((colaboradoresData || []) as ColaboradorCadastrado[]);
 
       if (frentes) {
         setTecnicosFrente(frentes as TecnicoFrente[]);
@@ -125,12 +142,12 @@ export function useComissionamento() {
         // Map frente to comissionamento data by nome
         const frenteMap = new Map<string, string>();
         (frentes as TecnicoFrente[]).forEach(tf => {
-          frenteMap.set(tf.nome.trim().toUpperCase(), tf.frente);
+          frenteMap.set(normalizePersonName(tf.nome), tf.frente);
         });
 
         allData = allData.map(row => ({
           ...row,
-          frente: frenteMap.get((row.nome || '').trim().toUpperCase()) || row.frente || null
+          frente: frenteMap.get(normalizePersonName(row.nome)) || row.frente || null
         }));
       }
 
@@ -321,13 +338,13 @@ export function useComissionamento() {
 
   const tecnicoNomes = useMemo(() => {
     const nomes = new Map<string, string>();
-    tecnicosFrente.forEach((tecnico) => {
-      const nome = tecnico.nome?.trim();
-      if (nome) nomes.set(nome.toLocaleUpperCase('pt-BR'), nome);
+    colaboradores.forEach((colaborador) => {
+      const nome = colaborador.nome?.trim();
+      if (nome) nomes.set(normalizePersonName(nome), nome);
     });
 
     return [...nomes.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [tecnicosFrente]);
+  }, [colaboradores]);
 
   const uniqueFrente = useMemo(() =>
     [...new Set(tecnicosFrente.map(t => t.frente).filter(Boolean))].sort() as string[],
@@ -467,56 +484,21 @@ export function useComissionamento() {
     }).sort((a, b) => b.qtdConsultivo - a.qtdConsultivo);
   }, [filteredData, tecnicosFrente, filters.cidade]);
 
-  const addTecnicoFrente = useCallback(async (
-    novoTecnico: Omit<TecnicoFrente, 'id'>
-  ): Promise<TecnicoFrente> => {
-    const nome = novoTecnico.nome.trim().replace(/\s+/g, ' ');
-    const nomeNormalizado = nome.toLocaleUpperCase('pt-BR');
-
-    if (tecnicosFrente.some((tecnico) =>
-      tecnico.nome.trim().toLocaleUpperCase('pt-BR') === nomeNormalizado
-    )) {
-      throw new Error('Este colaborador já está cadastrado em tecnicos_frentes.');
-    }
-
-    const payload: Omit<TecnicoFrente, 'id'> = {
-      nome,
-      frente: novoTecnico.frente.trim(),
-      cidade: novoTecnico.cidade?.trim() || null,
-    };
-
-    const { data: inserted, error: insertError } = await externalSupabase
-      .from('tecnicos_frentes')
-      .insert(payload)
-      .select('id, nome, frente, cidade')
-      .single();
-
-    if (insertError) {
-      if (insertError.code === '23505') {
-        throw new Error('Este colaborador já está cadastrado em tecnicos_frentes.');
-      }
-      throw insertError;
-    }
-
-    const tecnico = inserted as TecnicoFrente;
-    setTecnicosFrente((current) =>
-      [...current, tecnico].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-    );
-    return tecnico;
-  }, [tecnicosFrente]);
-
   const submitManualEntry = useCallback(async (formData: Record<string, any>) => {
-    const nomeNormalizado = (formData.nome || '').trim().toLocaleUpperCase('pt-BR');
+    const nomeNormalizado = normalizePersonName(formData.nome);
+    const colaborador = colaboradores.find((item) =>
+      normalizePersonName(item.nome) === nomeNormalizado
+    );
     const tecnico = tecnicosFrente.find((item) =>
-      item.nome.trim().toLocaleUpperCase('pt-BR') === nomeNormalizado
+      normalizePersonName(item.nome) === nomeNormalizado
     );
 
-    if (!tecnico) {
-      throw new Error('Selecione um colaborador cadastrado em tecnicos_frentes.');
+    if (!colaborador) {
+      throw new Error('Selecione um nome da lista de colaboradores cadastrados.');
     }
 
     const record: any = {
-      nome: tecnico.nome,
+      nome: colaborador.nome,
       login_criador: formData.login_criador,
       alocacao: formData.alocacao,
       data: formData.data || null,
@@ -533,7 +515,7 @@ export function useComissionamento() {
       pagamento: formData.pagamento || null,
       mes_ano_proposta: formData.mes_ano_proposta || null,
       status: formData.status || 'PENDENTE',
-      frente: tecnico.frente,
+      frente: tecnico?.frente || null,
       row_hash: `manual_${Date.now()}_${Math.random().toString(36).slice(2)}`
     };
 
@@ -541,7 +523,7 @@ export function useComissionamento() {
     if (insertError) throw insertError;
 
     await fetchData();
-  }, [fetchData, tecnicosFrente]);
+  }, [colaboradores, fetchData, tecnicosFrente]);
   const updateRecord = useCallback(async (id: string, updates: Partial<ComissionamentoData>) => {
     const { error: updateError } = await externalSupabase
       .from('comissionamento')
@@ -571,7 +553,6 @@ export function useComissionamento() {
     fetchData,
     importExcel,
     submitManualEntry,
-    addTecnicoFrente,
     updateRecord,
     deleteRecord,
     uniqueCidades,
@@ -583,6 +564,7 @@ export function useComissionamento() {
     ranking,
     frentesData,
     tecnicosFrente,
+    colaboradores,
     uniqueProposta,
     uniqueTipoVenda
   };

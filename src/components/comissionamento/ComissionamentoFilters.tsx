@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { ComissionamentoFilters as FiltersType, ComissionamentoData } from '@/types/comissionamento';
-import { Search, X, Upload, FileEdit, Download, UserPlus } from 'lucide-react';
+import { Search, X, Upload, FileEdit, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComissionamentoFormDialog } from './ComissionamentoFormDialog';
-import { TecnicoFrenteDialog } from './TecnicoFrenteDialog';
 import { TecnicoFrente } from '@/types/comissionamento';
 import * as XLSX from 'xlsx';
 
@@ -134,19 +133,17 @@ interface Props {
   totalFiltered: number;
   onImport: (file: File) => Promise<number>;
   onManualSubmit: (data: Record<string, any>) => Promise<void>;
-  onAddTecnico: (data: Omit<TecnicoFrente, 'id'>) => Promise<TecnicoFrente>;
   isLoading: boolean;
   filteredData: ComissionamentoData[];
 }
 
 export const ComissionamentoFilters: React.FC<Props> = ({
   filters, setFilters, clearFilters, uniqueCidades, uniqueNomes, tecnicoNomes, tecnicosFrente, uniqueFrente, uniqueProposta, uniqueTipoVenda, totalFiltered,
-  onImport, onManualSubmit, onAddTecnico, isLoading, filteredData
+  onImport, onManualSubmit, isLoading, filteredData
 }) => {
   const hasFilters = filters.cidade.length > 0 || filters.dataInicio || filters.dataFim || filters.status.length > 0 || filters.nome.length > 0 || filters.frente.length > 0 || filters.contrato.length > 0 || filters.proposta.length > 0 || filters.tipo_venda.length > 0 || filters.dataExecInicio || filters.dataExecFim;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [tecnicoOpen, setTecnicoOpen] = useState(false);
 
   const uniqueContratos = React.useMemo(() => {
     return [...new Set(filteredData.map(r => r.contrato).filter(Boolean))].sort() as string[];
@@ -198,9 +195,6 @@ export const ComissionamentoFilters: React.FC<Props> = ({
           <Button variant="outline" size="sm" onClick={() => setFormOpen(true)} className="gap-1">
             <FileEdit className="w-4 h-4" /> Preencher Formulário
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setTecnicoOpen(true)} className="gap-1">
-            <UserPlus className="w-4 h-4" /> Adicionar colaborador
-          </Button>
           <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={filteredData.length === 0} className="gap-1">
             <Download className="w-4 h-4" /> Exportar Excel
           </Button>
@@ -224,15 +218,6 @@ export const ComissionamentoFilters: React.FC<Props> = ({
         uniqueCidades={uniqueCidades}
         tecnicosFrente={tecnicosFrente}
       />
-
-      <TecnicoFrenteDialog
-        open={tecnicoOpen}
-        onClose={() => setTecnicoOpen(false)}
-        onSubmit={onAddTecnico}
-        frenteOptions={uniqueFrente}
-        cidadeOptions={uniqueCidades}
-      />
-
 
       <div className="filter-section">
         <MultiSelect

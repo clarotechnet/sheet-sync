@@ -78,3 +78,10 @@ export interface FrenteKPIData {
   pctTecAdherente: number;     // % tec aderente
   tecNaoVenderam: string[];    // technicians who didn't sell
 }
+
+export interface ColaboradorCadastrado {
+  id: string;
+  nome: string;
+  cpf: string;
+  setor: string;
+}
