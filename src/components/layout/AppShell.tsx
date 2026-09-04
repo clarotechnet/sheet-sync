@@ -9,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Trophy,
   UserRound,
   WalletCards,
   X,
@@ -32,6 +33,7 @@ const navigationItems: NavigationItem[] = [
   { label: 'Dashboard', path: '/selecao', icon: LayoutDashboard },
   { label: 'Sistema de Gestão', path: '/dashboard-atividades', icon: ClipboardList },
   { label: 'Comissionamento Técnico', path: '/comissionamento', icon: WalletCards, adminOnly: true },
+  { label: 'Gatilhos', path: '/gatilhos', icon: Trophy, adminOnly: true },
   { label: 'Configurações', path: '/admin', icon: Settings, adminOnly: true },
 ];
 
