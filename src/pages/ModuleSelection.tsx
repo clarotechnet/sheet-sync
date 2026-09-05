@@ -35,6 +35,9 @@ const normalizeLabel = (value: string | undefined, fallback: string) => {
   return label || fallback;
 };
 
+const getCityLabel = (item: ActivityData) =>
+  normalizeLabel(item.Cidade || item.cidade, 'Não informada').toUpperCase();
+
 const normalizeComparison = (value: string | undefined) =>
   (value || '')
     .normalize('NFD')
@@ -127,6 +130,8 @@ function DistributionPanel({
   colorClassName,
   showProductivity = false,
   emptyMessage,
+  selectedLabel,
+  onSelect,
 }: {
   title: string;
   subtitle: string;
@@ -134,6 +139,8 @@ function DistributionPanel({
   colorClassName: string;
   showProductivity?: boolean;
   emptyMessage: string;
+  selectedLabel?: string | null;
+  onSelect?: (label: string) => void;
 }) {
   const max = Math.max(1, ...items.map((item) => item.count));
 
@@ -156,8 +163,8 @@ function DistributionPanel({
               ? Math.round(((item.productive || 0) / item.count) * 100)
               : null;
 
-            return (
-              <div key={item.label}>
+            const content = (
+              <>
                 <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate font-semibold text-slate-700" title={item.label}>
                     {item.label}
@@ -175,7 +182,25 @@ function DistributionPanel({
                     style={{ width: `${Math.max(3, percentage)}%` }}
                   />
                 </div>
-              </div>
+              </>
+            );
+
+            return onSelect ? (
+              <button
+                key={item.label}
+                type="button"
+                aria-pressed={selectedLabel === item.label}
+                onClick={() => onSelect(item.label)}
+                className={`block w-full rounded-md p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e31325] ${
+                  selectedLabel === item.label
+                    ? 'bg-red-50 ring-1 ring-[#e31325]'
+                    : 'hover:bg-slate-50'
+                }`}
+              >
+                {content}
+              </button>
+            ) : (
+              <div key={item.label}>{content}</div>
             );
           })}
         </div>
@@ -184,7 +209,19 @@ function DistributionPanel({
   );
 }
 
-function DailyOverview({ data, presentation = false }: { data: ActivityData[]; presentation?: boolean }) {
+function DailyOverview({
+  data,
+  cities,
+  selectedCity,
+  onSelectCity,
+  presentation = false,
+}: {
+  data: ActivityData[];
+  cities: DistributionItem[];
+  selectedCity: string | null;
+  onSelectCity: (city: string | null) => void;
+  presentation?: boolean;
+}) {
   const statusCounts = useMemo(() => {
     const initial: Record<ActivityStatus, number> = {
       Produtiva: 0,
@@ -203,25 +240,27 @@ function DailyOverview({ data, presentation = false }: { data: ActivityData[]; p
     () => groupItems(data, getTechnologyLabel),
     [data],
   );
-  const cities = useMemo(
-    () => groupItems(data, (item) => normalizeLabel(item.Cidade || item.cidade, 'Não informada').toUpperCase()),
-    [data],
-  );
 
   const finished = statusCounts.Produtiva + statusCounts.Improdutiva;
   const productivity = finished > 0 ? (statusCounts.Produtiva / finished) * 100 : 0;
-  const cityItems = presentation && cities.length > 10
-    ? [
-        ...cities.slice(0, 10),
-        {
-          label: 'OUTRAS CIDADES',
-          count: cities.slice(10).reduce((sum, item) => sum + item.count, 0),
-        },
-      ]
-    : cities;
 
   return (
     <>
+      {selectedCity && (
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <span className="min-w-0 break-words">Cidade: {selectedCity}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            onClick={() => onSelectCity(null)}
+            title="Mostrar todas as cidades"
+            aria-label="Mostrar todas as cidades"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       <div className={presentation ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5' : 'grid gap-4 sm:grid-cols-2 xl:grid-cols-5'}>
         <MetricCard
           label="Serviços do dia"
@@ -279,7 +318,9 @@ function DailyOverview({ data, presentation = false }: { data: ActivityData[]; p
         <DistributionPanel
           title="Cidades"
           subtitle="Concentração dos atendimentos"
-          items={cityItems}
+          items={cities}
+          selectedLabel={selectedCity}
+          onSelect={(city) => onSelectCity(selectedCity === city ? null : city)}
           colorClassName="bg-amber-500"
           emptyMessage="Nenhuma cidade informada hoje."
         />
@@ -322,6 +363,12 @@ export default function ModuleSelection() {
   const { data, isLoading, error, fetchData } = useAtividades();
   const [isPresenting, setIsPresenting] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const cities = useMemo(() => groupItems(data, getCityLabel), [data]);
+  const filteredData = useMemo(
+    () => selectedCity ? data.filter((item) => getCityLabel(item) === selectedCity) : data,
+    [data, selectedCity],
+  );
 
   const today = useMemo(() => new Date(), []);
   const todayIso = useMemo(() => formatLocalIsoDate(today), [today]);
@@ -393,7 +440,7 @@ export default function ModuleSelection() {
               <p className="text-sm font-semibold">Carregando o resumo diário...</p>
             </div>
           ) : (
-            <DailyOverview data={data} />
+            <DailyOverview data={filteredData} cities={cities} selectedCity={selectedCity} onSelectCity={setSelectedCity} />
           )}
         </div>
       </main>
@@ -423,7 +470,7 @@ export default function ModuleSelection() {
                   <X className="h-5 w-5" />
                 </button>
               </header>
-              <DailyOverview data={data} presentation />
+              <DailyOverview data={filteredData} cities={cities} selectedCity={selectedCity} onSelectCity={setSelectedCity} presentation />
             </div>
           </div>
         </div>
