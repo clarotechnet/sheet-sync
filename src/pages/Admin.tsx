@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -66,11 +67,18 @@ interface AllUser {
 }
 
 export default function Admin() {
-  const { isAdmin, isLoading: authLoading, onlineUsers, user } = useAuth();
+  const { isAdmin, isLoading: authLoading, onlineUserIds, isPresenceConnected, user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('users');
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
+  const [onlyOnline, setOnlyOnline] = useState(false);
+  const onlineIds = useMemo(() => new Set(onlineUserIds), [onlineUserIds]);
+  const onlineUsers = allUsers.filter((u) => u.approved && onlineIds.has(u.id)).length;
+  const visibleUsers = useMemo(() => (
+    allUsers.filter((u) => !onlyOnline || (isPresenceConnected && u.approved && onlineIds.has(u.id)))
+      .sort((a, b) => Number(b.approved && onlineIds.has(b.id)) - Number(a.approved && onlineIds.has(a.id)))
+  ), [allUsers, onlyOnline, onlineIds, isPresenceConnected]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [collaborators, setCollaborators] = useState<ColaboradorCadastrado[]>([]);
@@ -217,7 +225,9 @@ export default function Admin() {
           approved: true,
           approved_at: new Date().toISOString(),
         })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -257,7 +267,9 @@ export default function Admin() {
           approved: false,
           approved_at: null,
         })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -293,7 +305,9 @@ export default function Admin() {
       const { error } = await externalSupabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -425,7 +439,7 @@ export default function Admin() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-sky-600">{onlineUsers}</p>
+              <p className="text-3xl font-bold text-sky-600">{isPresenceConnected ? onlineUsers : '-'}</p>
             </CardContent>
           </Card>
 
@@ -505,8 +519,12 @@ export default function Admin() {
               Todos os Usuários ({allUsers.length})
             </CardTitle>
             <CardDescription>
-              Lista completa de usuários cadastrados no sistema.
+              Lista completa de usuários cadastrados no sistema. {isPresenceConnected ? `${onlineUsers} online agora.` : 'Verificando presença...'}
             </CardDescription>
+            <div className="flex items-center gap-2 pt-2">
+              <Checkbox id="only-online-users" checked={onlyOnline} onCheckedChange={(checked) => setOnlyOnline(checked === true)} />
+              <Label htmlFor="only-online-users">Somente online</Label>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -516,12 +534,20 @@ export default function Admin() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Presença</TableHead>
                   <TableHead>Aprovado em</TableHead>
                   <TableHead className="text-right">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allUsers.map((u) => (
+                {visibleUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      {onlyOnline ? (isPresenceConnected ? 'Nenhum usuário online agora.' : 'Verificando presença...') : 'Nenhum usuário cadastrado.'}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {visibleUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
                       {u.email || '-'}
@@ -563,6 +589,16 @@ export default function Admin() {
                           Pendente
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center gap-2 whitespace-nowrap text-sm ${
+                        isPresenceConnected && u.approved && onlineIds.has(u.id) ? 'font-semibold text-emerald-700' : 'text-slate-500'
+                      }`}>
+                        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${
+                          isPresenceConnected && u.approved && onlineIds.has(u.id) ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`} />
+                        {!isPresenceConnected ? 'Verificando...' : u.approved && onlineIds.has(u.id) ? 'Online' : 'Offline'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {u.approved_at ? formatDate(u.approved_at) : '-'}

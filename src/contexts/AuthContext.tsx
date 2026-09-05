@@ -17,6 +17,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   onlineUsers: number;
+  onlineUserIds: string[];
+  isPresenceConnected: boolean;
   isLoading: boolean;
   isAdmin: boolean;
   isApproved: boolean;
@@ -36,7 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [onlineUsers, setOnlineUsers] = useState(0);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+  const [isPresenceConnected, setIsPresenceConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const profileRef = useRef<Profile | null>(null);
 
@@ -74,7 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user?.id || !profile?.approved) {
-      setOnlineUsers(0);
+      setOnlineUserIds([]);
+      setIsPresenceConnected(false);
       return;
     }
 
@@ -87,7 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const syncOnlineUsers = () => {
-      setOnlineUsers(Object.keys(channel.presenceState()).length);
+      setOnlineUserIds(Object.keys(channel.presenceState()));
+      setIsPresenceConnected(true);
     };
 
     channel
@@ -95,11 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({ online_at: new Date().toISOString() });
+        } else {
+          setOnlineUserIds([]);
+          setIsPresenceConnected(false);
         }
       });
 
     return () => {
-      setOnlineUsers(0);
+      setOnlineUserIds([]);
+      setIsPresenceConnected(false);
       void channel.untrack().finally(() => externalSupabase.removeChannel(channel));
     };
   }, [profile?.approved, user?.id]);
@@ -261,7 +270,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         profile,
-        onlineUsers,
+        onlineUsers: onlineUserIds.length,
+        onlineUserIds,
+        isPresenceConnected,
         isLoading,
         isAdmin,
         isApproved,
