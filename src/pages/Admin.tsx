@@ -48,6 +48,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { CollaboratorFrentes } from '@/components/admin/CollaboratorFrentes';
 
 interface PendingUser {
   id: string;
@@ -70,6 +71,8 @@ export default function Admin() {
   const { isAdmin, isLoading: authLoading, onlineUserIds, isPresenceConnected, user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('users');
+  const [frentesRefreshKey, setFrentesRefreshKey] = useState(0);
+  const [frentesLoading, setFrentesLoading] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [onlyOnline, setOnlyOnline] = useState(false);
@@ -346,8 +349,12 @@ export default function Admin() {
     return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  const currentTabLoading = activeTab === 'users' ? isLoading : collaboratorsLoading;
+  const currentTabLoading = activeTab === 'users' ? isLoading : activeTab === 'frentes' ? frentesLoading : collaboratorsLoading;
   const refreshCurrentTab = () => {
+    if (activeTab === 'frentes') {
+      setFrentesRefreshKey(current => current + 1);
+      return;
+    }
     if (activeTab === 'users') {
       void fetchUsers();
       return;
@@ -398,6 +405,10 @@ export default function Admin() {
             <TabsTrigger value="collaborators" className="w-full justify-start gap-2 rounded-md px-4 py-2.5 sm:w-auto">
               <IdCard className="h-4 w-4" />
               Colaboradores cadastrados
+            </TabsTrigger>
+            <TabsTrigger value="frentes" className="w-full justify-start gap-2 rounded-md px-4 py-2.5 sm:w-auto">
+              <Users className="h-4 w-4" />
+              Frentes dos colaboradores
             </TabsTrigger>
           </TabsList>
 
@@ -722,6 +733,9 @@ export default function Admin() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+          <TabsContent value="frentes">
+            <CollaboratorFrentes refreshKey={frentesRefreshKey} onLoadingChange={setFrentesLoading} />
           </TabsContent>
         </Tabs>
 

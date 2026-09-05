@@ -36,7 +36,7 @@ export const Header = forwardRef<HTMLElement>((_, ref) => {
           </Button>
           <div className="w-20 h-20 rounded-xl flex items-center justify-center shadow-glow overflow-hidden">
             <img
-              src={`${import.meta.env.BASE_URL}LogoNovo.png`}
+              src={`${import.meta.env.BASE_URL}LogoCompacto.webp`}
               alt="Logo Technet"
               className="w-full h-full object-contain"
             />

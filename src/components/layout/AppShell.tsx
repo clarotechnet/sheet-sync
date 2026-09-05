@@ -111,11 +111,13 @@ export function AppShell({ children }: AppShellProps) {
           compact ? 'justify-center px-2' : 'gap-3 px-4',
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
           <img
-            src={`${import.meta.env.BASE_URL}LogoNovo.png`}
+            src={`${import.meta.env.BASE_URL}LogoCompacto.webp`}
             alt="Logo TechNET"
-            className="h-10 w-10 scale-[1.18] object-contain"
+            width={48}
+            height={48}
+            className="block h-full w-full object-contain"
           />
         </div>
         {!compact && (
@@ -232,11 +234,13 @@ export function AppShell({ children }: AppShellProps) {
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
             <img
-              src={`${import.meta.env.BASE_URL}LogoNovo.png`}
+              src={`${import.meta.env.BASE_URL}LogoCompacto.webp`}
               alt="Logo TechNET"
-              className="h-9 w-9 scale-110 object-contain"
+              width={48}
+              height={48}
+              className="block h-full w-full object-contain"
             />
           </div>
           <span className="font-extrabold text-slate-950">TechNET</span>

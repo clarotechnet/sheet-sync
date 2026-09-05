@@ -452,7 +452,7 @@ export default function ModuleSelection() {
               <header className="mb-5 flex items-center justify-between gap-5 border-b border-slate-200 pb-5">
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
-                    <img src={`${import.meta.env.BASE_URL}LogoNovo.png`} alt="Logo TechNET" className="h-11 w-11 object-contain" />
+                    <img src={`${import.meta.env.BASE_URL}LogoCompacto.webp`} alt="Logo TechNET" className="h-11 w-11 object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-extrabold text-[#e31325]">TechNET</p>
