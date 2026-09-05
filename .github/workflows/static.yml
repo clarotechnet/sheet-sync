@@ -1,14 +1,20 @@
 name: Deploy Hostinger
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: false
 
 jobs:
   deploy:
     name: Build e enviar para Hostinger
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Baixar código
@@ -29,6 +35,8 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Enviar dist para Hostinger
+        id: ftp_upload
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.HOSTINGER_FTP_SERVER }}
@@ -38,3 +46,21 @@ jobs:
           port: 21
           local-dir: ./dist/
           server-dir: ./sistema/
+          timeout: 120000
+
+      - name: Aguardar antes de tentar novamente
+        if: steps.ftp_upload.outcome == 'failure'
+        run: sleep 20
+
+      - name: Repetir envio para Hostinger
+        if: steps.ftp_upload.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./dist/
+          server-dir: ./sistema/
+          timeout: 120000
