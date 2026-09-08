@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Pencil, Save, Search } from 'lucide-react';
+import { Loader2, Pencil, Save, Search, UserPlus } from 'lucide-react';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import { TecnicoFrente } from '@/types/comissionamento';
 import { normalizePersonName } from '@/utils/normalizeName';
@@ -25,6 +25,9 @@ export function CollaboratorFrentes({ refreshKey, onLoadingChange }: {
   const [city, setCity] = useState('');
   const [front, setFront] = useState('');
   const [editing, setEditing] = useState<FrenteRow | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [selectedFront, setSelectedFront] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -68,27 +71,55 @@ export function CollaboratorFrentes({ refreshKey, onLoadingChange }: {
     && (!city || row.cidade === city) && (!front || row.frente === front)
   ), [rows, search, city, front]);
 
+  const cleanName = name.trim().replace(/\s+/g, ' ');
+  const hasChanges = !editing || cleanName !== editing.nome || selectedFront !== editing.frente;
+  const canSave = Boolean(cleanName && selectedFront && (editing || selectedCity) && hasChanges);
+
+  const openEditor = (row: FrenteRow | null) => {
+    setEditing(row);
+    setName(row?.nome || '');
+    setSelectedCity(row?.cidade || city);
+    setSelectedFront(row?.frente || front);
+    setSaveError('');
+    setDialogOpen(true);
+  };
+
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!editing || !selectedFront || saving || selectedFront === editing.frente) return;
+    if (!canSave || saving) return;
+    if (rows.some(row => row.id !== editing?.id && normalizePersonName(row.nome) === normalizePersonName(cleanName))) {
+      setSaveError('Já existe um colaborador com esse nome no cadastro de frentes.');
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
-      const { data, error } = await externalSupabase.from('tecnicos_frentes')
-        .update({ frente: selectedFront })
-        .eq('id', editing.id).eq('frente', editing.frente)
-        .select('id, nome, cidade, frente').single();
+      const request = editing
+        ? externalSupabase.from('tecnicos_frentes')
+          .update({ nome: cleanName, frente: selectedFront })
+          .eq('id', editing.id).eq('nome', editing.nome).eq('frente', editing.frente)
+        : externalSupabase.from('tecnicos_frentes')
+          .insert({ nome: cleanName, cidade: selectedCity, frente: selectedFront });
+      const { data, error } = await request.select('id, nome, cidade, frente').single();
       if (error) {
+        if (error.code === '23505') {
+          throw new Error('Já existe um colaborador com esse nome no cadastro de frentes.');
+        }
         if (error.code === 'PGRST116') {
           throw new Error('O cadastro mudou ou a edição não foi autorizada. Feche esta janela, atualize a lista e tente novamente.');
         }
-        throw new Error(error.message || 'Não foi possível salvar a frente.');
+        throw new Error(error.message || 'Não foi possível salvar o colaborador.');
       }
-      setRows(current => current.map(row => row.id === editing.id ? data as FrenteRow : row));
+      setRows(current => (editing
+        ? current.map(row => row.id === editing.id ? data as FrenteRow : row)
+        : [...current, data as FrenteRow]
+      ).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')));
+      if (!editing) { setSearch(''); setCity(''); setFront(''); }
+      setDialogOpen(false);
       setEditing(null);
-      toast({ title: 'Frente atualizada', description: `${data.nome}: ${data.frente}.` });
+      toast({ title: editing ? 'Colaborador atualizado' : 'Colaborador adicionado', description: `${data.nome}: ${data.frente}.` });
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Não foi possível salvar a frente.');
+      setSaveError(error instanceof Error ? error.message : 'Não foi possível salvar o colaborador.');
     } finally {
       setSaving(false);
     }
@@ -96,9 +127,14 @@ export function CollaboratorFrentes({ refreshKey, onLoadingChange }: {
 
   return (
     <section className="space-y-5">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
         <h2 className="text-xl font-bold">Frentes dos colaboradores</h2>
         <p className="mt-1 text-sm text-muted-foreground">Comissionamento Técnico</p>
+        </div>
+        <Button onClick={() => openEditor(null)} disabled={loading || Boolean(loadError)}>
+          <UserPlus className="h-4 w-4" /> Adicionar colaborador
+        </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="relative">
@@ -134,8 +170,8 @@ export function CollaboratorFrentes({ refreshKey, onLoadingChange }: {
                 <TableCell className="min-w-48 font-medium">{row.nome}</TableCell>
                 <TableCell>{row.cidade || '-'}</TableCell><TableCell>{row.frente}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" title={`Editar frente de ${row.nome}`} aria-label={`Editar frente de ${row.nome}`}
-                    onClick={() => { setEditing(row); setSelectedFront(row.frente); setSaveError(''); }}>
+                  <Button variant="ghost" size="icon" title={`Editar ${row.nome}`} aria-label={`Editar ${row.nome}`}
+                    onClick={() => openEditor(row)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -144,25 +180,42 @@ export function CollaboratorFrentes({ refreshKey, onLoadingChange }: {
           </Table>
         </>
       )}
-      <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open && !saving) setEditing(null); }}>
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !saving) setDialogOpen(false); }}>
         <DialogContent className="max-w-md">
           <form onSubmit={save} className="space-y-5">
             <DialogHeader>
-              <DialogTitle>Editar frente</DialogTitle>
-              <DialogDescription className="break-words">{editing?.nome}</DialogDescription>
+              <DialogTitle>{editing ? 'Editar colaborador' : 'Adicionar colaborador'}</DialogTitle>
+              <DialogDescription>Cadastro de frentes do Comissionamento Técnico</DialogDescription>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">{editing?.cidade || 'Cidade não informada'}</p>
+            <div className="space-y-2">
+              <Label htmlFor="collaborator-front-name">Nome</Label>
+              <Input id="collaborator-front-name" value={name} onChange={event => setName(event.target.value)}
+                placeholder="Nome completo" disabled={saving} required autoFocus />
+            </div>
+            {editing ? (
+              <p className="text-sm text-muted-foreground">{editing.cidade || 'Cidade não informada'}</p>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="collaborator-front-city">Cidade</Label>
+                <select id="collaborator-front-city" className={selectClassName} value={selectedCity}
+                  onChange={event => setSelectedCity(event.target.value)} disabled={saving} required>
+                  <option value="">Selecione...</option>
+                  {cities.map(value => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="collaborator-front">Frente</Label>
               <select id="collaborator-front" className={selectClassName} value={selectedFront}
                 onChange={event => setSelectedFront(event.target.value)} disabled={saving} required>
+                <option value="">Selecione...</option>
                 {fronts.map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
             {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button type="submit" disabled={saving || !selectedFront || selectedFront === editing?.frente}>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={saving || !canSave}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
               </Button>
             </DialogFooter>
