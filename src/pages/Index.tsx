@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DashboardProvider, useDashboard } from '@/contexts/DashboardContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { Filters } from '@/components/dashboard/Filters';
 import { KPICards } from '@/components/dashboard/KPICards';
@@ -31,6 +32,7 @@ const TABS = [
 
 const DashboardContent: React.FC = () => {
   const { allData, isLoading, isSyncing, error, refreshData } = useDashboard();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('summary');
 
   const hasData = allData.length > 0;
@@ -82,7 +84,7 @@ const DashboardContent: React.FC = () => {
         )}
 
         {/* Upload de arquivo */}
-        <FileUpload />
+        {isAdmin && <FileUpload />}
 
         {/* Loading inicial */}
         {isLoading && !hasData && (

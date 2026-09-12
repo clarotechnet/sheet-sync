@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import ModuleSelection from "./pages/ModuleSelection";
 import Comissionamento from "./pages/Comissionamento";
 import Gatilhos from "./pages/Gatilhos";
+import Premiacao from "./pages/Premiacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requireAdmin>
                     <Gatilhos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/premiacao"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Premiacao />
                   </ProtectedRoute>
                 }
               />

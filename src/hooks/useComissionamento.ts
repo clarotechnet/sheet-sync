@@ -31,46 +31,91 @@ function normalizeStatus(val: string | undefined | null): 'PENDENTE' | 'CONFIRMA
   return 'PENDENTE';
 }
 
-function parseDate(val: string | undefined | null): string | null {
-  if (!val) return null;
-  const str = val.toString().trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+function parseDate(val: unknown): string | null {
+  if (val === null || val === undefined || val === '') return null;
+
+  const toIsoIfValid = (year: number, month: number, day: number) => {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (
+      date.getUTCFullYear() !== year
+      || date.getUTCMonth() !== month - 1
+      || date.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  if (val instanceof Date && Number.isFinite(val.getTime())) {
+    return toIsoIfValid(val.getFullYear(), val.getMonth() + 1, val.getDate());
+  }
+
+  if (typeof val === 'number' && Number.isFinite(val) && val > 10000 && val < 100000) {
+    const wholeDays = Math.floor(val);
+    const date = new Date(Date.UTC(1899, 11, 30) + wholeDays * 86400000);
+    return date.toISOString().slice(0, 10);
+  }
+
+  const str = String(val).trim();
+  if (!str) return null;
+
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return toIsoIfValid(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  // Planilhas brasileiras usam DD/MM/AAAA. Não tenta inverter dia e mês.
   const brMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (brMatch) {
-    let day = brMatch[1];
-    let month = brMatch[2];
-    let year = brMatch[3];
-    if (parseInt(day) > 12) {
-      day = day.padStart(2, '0');
-      month = month.padStart(2, '0');
-    } else if (parseInt(month) > 12) {
-      const tmp = day;
-      day = month.padStart(2, '0');
-      month = tmp.padStart(2, '0');
-    } else {
-      const tmp = day;
-      day = month.padStart(2, '0');
-      month = tmp.padStart(2, '0');
-    }
-    if (year.length === 2) year = (parseInt(year) > 50 ? '19' : '20') + year;
-    return `${year}-${month}-${day}`;
+    const day = Number(brMatch[1]);
+    const month = Number(brMatch[2]);
+    let year = Number(brMatch[3]);
+    if (brMatch[3].length === 2) year += year > 50 ? 1900 : 2000;
+    return toIsoIfValid(year, month, day);
   }
-  const num = parseFloat(str);
-  if (!isNaN(num) && num > 10000 && num < 100000) {
-    const excelEpoch = new Date(1899, 11, 30);
-    const date = new Date(excelEpoch.getTime() + num * 86400000);
-    return date.toISOString().substring(0, 10);
+
+  const numeric = Number(str.replace(',', '.'));
+  if (Number.isFinite(numeric) && numeric > 10000 && numeric < 100000) {
+    const wholeDays = Math.floor(numeric);
+    const date = new Date(Date.UTC(1899, 11, 30) + wholeDays * 86400000);
+    return date.toISOString().slice(0, 10);
   }
+
   return null;
 }
 
-function parseValor(val: string | undefined | null): number | null {
-  if (!val) return null;
-  const str = val.toString().trim();
-  if (str.toUpperCase() === 'N/I' || str === '-' || str === '') return null;
-  const cleaned = str.replace(/[Rr]?\$?\s*/g, '').replace(/\./g, '').replace(',', '.');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? null : num;
+function parseValor(val: unknown): number | null {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+
+  let str = String(val).trim();
+  if (!str || str.toUpperCase() === 'N/I' || str === '-') return null;
+
+  str = str
+    .replace(/R\$/gi, '')
+    .replace(/\s/g, '')
+    .replace(/[^0-9,.-]/g, '');
+
+  const lastComma = str.lastIndexOf(',');
+  const lastDot = str.lastIndexOf('.');
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    if (lastComma > lastDot) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  } else if (lastComma >= 0) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if ((str.match(/\./g) || []).length > 1) {
+    str = str.replace(/\./g, '');
+  } else if (/^-?\d{1,3}\.\d{3}$/.test(str)) {
+    // Ex.: "1.234" em texto brasileiro representa milhar, não centavos.
+    str = str.replace('.', '');
+  }
+
+  const num = Number(str);
+  return Number.isFinite(num) ? num : null;
 }
 
 export function useComissionamento() {
@@ -206,26 +251,32 @@ export function useComissionamento() {
 
     const records: ComissionamentoData[] = rows.map((row, index) => {
       const r = row as unknown[];
-      const get = (field: string) => colMap[field] !== undefined ? String(r[colMap[field]] || '').trim() : null;
+      const getRaw = (field: string) => colMap[field] !== undefined ? r[colMap[field]] : null;
+      const getText = (field: string) => {
+        const value = getRaw(field);
+        if (value === null || value === undefined) return null;
+        const text = String(value).trim();
+        return text || null;
+      };
 
       const record: ComissionamentoData = {
-        nome: get('nome') || '',
-        login_criador: get('login_criador'),
-        alocacao: get('alocacao'),
-        data: parseDate(get('data')),
-        mes_instalado: get('mes_instalado'),
-        tipo_venda: get('tipo_venda'),
-        proposta: get('proposta'),
-        data_envio_grupo: parseDate(get('data_envio_grupo')),
-        contrato: get('contrato'),
-        valores: parseValor(get('valores')),
-        data_agen: parseDate(get('data_agen')),
-        data_exec: parseDate(get('data_exec')),
-        observacoes: get('observacoes'),
-        janela: get('janela'),
-        pagamento: get('pagamento'),
-        mes_ano_proposta: get('mes_ano_proposta'),
-        status: normalizeStatus(get('status'))
+        nome: getText('nome') || '',
+        login_criador: getText('login_criador'),
+        alocacao: getText('alocacao'),
+        data: parseDate(getRaw('data')),
+        mes_instalado: getText('mes_instalado'),
+        tipo_venda: getText('tipo_venda'),
+        proposta: getText('proposta'),
+        data_envio_grupo: parseDate(getRaw('data_envio_grupo')),
+        contrato: getText('contrato'),
+        valores: parseValor(getRaw('valores')),
+        data_agen: parseDate(getRaw('data_agen')),
+        data_exec: parseDate(getRaw('data_exec')),
+        observacoes: getText('observacoes'),
+        janela: getText('janela'),
+        pagamento: getText('pagamento'),
+        mes_ano_proposta: getText('mes_ano_proposta'),
+        status: normalizeStatus(getText('status'))
       };
 
       record.row_hash = generateRowHash(record, index);
@@ -278,17 +329,13 @@ export function useComissionamento() {
     if (filters.cidade.length > 0) {
       result = result.filter(r => filters.cidade.some(c => (r.alocacao || '').toLowerCase().includes(c.toLowerCase())));
     }
+    // Filtros de agendamento usam somente a data de agendamento.
+    // Data Exec. possui filtros próprios e representa a competência de pagamento.
     if (filters.dataInicio) {
-      result = result.filter(r => {
-        const d = r.data || r.data_exec;
-        return d && d >= filters.dataInicio;
-      });
+      result = result.filter(r => Boolean(r.data && r.data >= filters.dataInicio));
     }
     if (filters.dataFim) {
-      result = result.filter(r => {
-        const d = r.data || r.data_exec;
-        return d && d <= filters.dataFim;
-      });
+      result = result.filter(r => Boolean(r.data && r.data <= filters.dataFim));
     }
     if (filters.status.length > 0) {
       result = result.filter(r => filters.status.includes(r.status || ''));

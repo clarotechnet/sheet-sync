@@ -158,29 +158,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     try {
-      const { data, error } = await externalSupabase.auth.signUp({
+      const normalizedDisplayName = displayName?.trim() || null;
+      const { error } = await externalSupabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            display_name: normalizedDisplayName,
+          },
         },
       });
 
       if (error) throw error;
-
-      // Garante linha no profile (evita login bloqueado por ausência de profile)
-      if (data?.user?.id) {
-        await externalSupabase
-          .from('profiles')
-          .upsert(
-            {
-              id: data.user.id,
-              email: data.user.email ?? email,
-              display_name: displayName ?? null,
-            },
-            { onConflict: 'id' }
-          );
-      }
 
       return {
         ok: true,

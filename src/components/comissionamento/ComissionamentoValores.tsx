@@ -11,6 +11,12 @@ interface ComissionamentoValoresProps {
   colaboradores: ColaboradorCadastrado[];
 }
 
+const formatIsoDatePtBr = (value: string | null) => {
+  if (!value) return '';
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+};
+
 export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ data, colaboradores }) => {
   const valoresData = useMemo(() => {
     const map = new Map<string, { nome: string; cidade: string; contratos: number; total: number }>();
@@ -36,13 +42,33 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
     const colaboradoresByName = new Map(
       colaboradores.map((colaborador) => [normalizePersonName(colaborador.nome), colaborador]),
     );
-    const totalsByName = new Map<string, { nome: string; valor: number }>();
+    const totalsByName = new Map<string, {
+      nome: string;
+      valor: number;
+      quantidade: number;
+      dataExecInicial: string;
+      dataExecFinal: string;
+    }>();
 
+    // Data Exec. é a data de competência/pagamento do comissionamento.
+    // Registros ainda sem execução não entram no relatório por Data Exec.
     data.forEach((row) => {
+      if (!row.data_exec) return;
       const key = normalizePersonName(row.nome);
       if (!key) return;
-      const current = totalsByName.get(key) || { nome: row.nome, valor: 0 };
+
+      const current = totalsByName.get(key) || {
+        nome: row.nome,
+        valor: 0,
+        quantidade: 0,
+        dataExecInicial: row.data_exec,
+        dataExecFinal: row.data_exec,
+      };
+
       current.valor += row.valores || 0;
+      current.quantidade += 1;
+      if (row.data_exec < current.dataExecInicial) current.dataExecInicial = row.data_exec;
+      if (row.data_exec > current.dataExecFinal) current.dataExecFinal = row.data_exec;
       totalsByName.set(key, current);
     });
 
@@ -53,11 +79,37 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
           Nome: colaborador?.nome || total.nome,
           CPF: colaborador?.cpf || '',
           Setor: colaborador?.setor || '',
+          DataExecInicial: total.dataExecInicial,
+          DataExecFinal: total.dataExecFinal,
+          Quantidade: total.quantidade,
           Valor: total.valor,
           matched: Boolean(colaborador),
         };
       })
       .sort((a, b) => Number(b.matched) - Number(a.matched) || a.Nome.localeCompare(b.Nome, 'pt-BR'));
+  }, [colaboradores, data]);
+
+  const reportDetailRows = useMemo(() => {
+    const colaboradoresByName = new Map(
+      colaboradores.map((colaborador) => [normalizePersonName(colaborador.nome), colaborador]),
+    );
+
+    return data
+      .filter((row) => Boolean(row.data_exec))
+      .map((row) => {
+        const colaborador = colaboradoresByName.get(normalizePersonName(row.nome));
+        return {
+          Nome: colaborador?.nome || row.nome,
+          CPF: colaborador?.cpf || '',
+          Setor: colaborador?.setor || '',
+          'Data Exec.': formatIsoDatePtBr(row.data_exec),
+          Contrato: row.contrato || '',
+          Proposta: row.proposta || '',
+          Status: row.status || '',
+          Valor: row.valores || 0,
+        };
+      })
+      .sort((a, b) => a['Data Exec.'].localeCompare(b['Data Exec.'], 'pt-BR') || a.Nome.localeCompare(b.Nome, 'pt-BR'));
   }, [colaboradores, data]);
 
   const exportToExcel = useCallback(() => {
@@ -84,41 +136,81 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
     XLSX.writeFile(wb, 'comissionamento_valores.xlsx');
   }, [valoresData]);
 
-  const generateCpfReport = useCallback(() => {
-    if (reportRows.length === 0) return;
+  const generateDataExecReport = useCallback(() => {
+    if (reportRows.length === 0) {
+      toast({
+        title: 'Nenhum relatório por Data Exec. para gerar',
+        description: 'O relatório considera apenas registros que possuem Data Exec.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    const rows = reportRows.map(({ Nome, CPF, Setor, Valor }) => ({
+    const summaryRows = reportRows.map(({
       Nome,
       CPF,
       Setor,
+      DataExecInicial,
+      DataExecFinal,
+      Quantidade,
+      Valor,
+    }) => ({
+      Nome,
+      CPF,
+      Setor,
+      'Data Exec. Inicial': formatIsoDatePtBr(DataExecInicial),
+      'Data Exec. Final': formatIsoDatePtBr(DataExecFinal),
+      'Qtd. OS': Quantidade,
       Valor,
     }));
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet['!cols'] = [
+
+    const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+    summarySheet['!cols'] = [
       { wch: 42 },
       { wch: 16 },
       { wch: 42 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 10 },
       { wch: 16 },
     ];
 
-    for (let row = 2; row <= rows.length + 1; row += 1) {
-      const cell = worksheet[`D${row}`];
-      if (cell) cell.z = 'R$ #,##0.00';
+    for (let row = 2; row <= summaryRows.length + 1; row += 1) {
+      const valueCell = summarySheet[`G${row}`];
+      if (valueCell) valueCell.z = 'R$ #,##0.00';
+    }
+
+    const detailSheet = XLSX.utils.json_to_sheet(reportDetailRows);
+    detailSheet['!cols'] = [
+      { wch: 42 },
+      { wch: 16 },
+      { wch: 42 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 16 },
+    ];
+
+    for (let row = 2; row <= reportDetailRows.length + 1; row += 1) {
+      const valueCell = detailSheet[`H${row}`];
+      if (valueCell) valueCell.z = 'R$ #,##0.00';
     }
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Relatório CPF');
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Data Exec');
+    XLSX.utils.book_append_sheet(workbook, detailSheet, 'Detalhes Data Exec');
     const date = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `relatorio_comissionamento_cpf_${date}.xlsx`);
+    XLSX.writeFile(workbook, `relatorio_comissionamento_data_exec_${date}.xlsx`);
 
     const unmatched = reportRows.filter((row) => !row.matched).length;
     toast({
-      title: 'Relatório gerado',
+      title: 'Relatório por Data Exec. gerado',
       description: unmatched > 0
         ? `${unmatched} nome(s) não foram encontrados no cadastro e ficaram sem CPF e setor.`
-        : 'Todos os nomes foram vinculados a CPF e setor.',
+        : 'Data Exec. foi usada como competência de pagamento para todos os colaboradores do relatório.',
     });
-  }, [reportRows]);
+  }, [reportDetailRows, reportRows]);
 
    const exportToPDF = useCallback(() => {
     if (valoresData.length === 0) return;
@@ -174,13 +266,13 @@ export const ComissionamentoValores: React.FC<ComissionamentoValoresProps> = ({ 
       <div className="space-y-4">
        <div className="flex justify-end gap-2">
         <Button
-          onClick={generateCpfReport}
+          onClick={generateDataExecReport}
           disabled={reportRows.length === 0}
           size="sm"
           className="gap-2 bg-[#e31325] hover:bg-[#bd1020]"
         >
           <FileSpreadsheet className="h-4 w-4" />
-          Gerar relatório
+          Relatório por Data Exec.
         </Button>
         <Button
           onClick={exportToPDF}

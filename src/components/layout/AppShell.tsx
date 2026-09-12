@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
+  CircleDollarSign,
   LayoutDashboard,
   LockKeyhole,
   LogOut,
@@ -34,6 +35,7 @@ const navigationItems: NavigationItem[] = [
   { label: 'Sistema de Gestão', path: '/dashboard-atividades', icon: ClipboardList },
   { label: 'Comissionamento Técnico', path: '/comissionamento', icon: WalletCards, adminOnly: true },
   { label: 'Gatilhos', path: '/gatilhos', icon: Trophy, adminOnly: true },
+  { label: 'Premiação', path: '/premiacao', icon: CircleDollarSign, adminOnly: true },
   { label: 'Configurações', path: '/admin', icon: Settings, adminOnly: true },
 ];
 
