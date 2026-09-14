@@ -31,6 +31,7 @@ export const useAtividades = (): UseAtividadesReturn => {
   const pendingSyncRef = useRef<ActivityData[] | null>(null);
   const adaptiveBatchSizeRef = useRef(25);
   const fetchRequestIdRef = useRef(0);
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
 
   // Deduplica por numero_os1 + numero_os + contrato + data_atividade antes do upsert.
   const prepareAtividadesForUpsert = useCallback(
@@ -257,10 +258,16 @@ export const useAtividades = (): UseAtividadesReturn => {
 
   const fetchData = useCallback(async (startDate?: string, endDate?: string) => {
     const requestId = ++fetchRequestIdRef.current;
+
+    // Cancela fisicamente a busca anterior. Sem isso, ao trocar datas rapidamente
+    // várias paginações antigas continuavam consumindo navegador e Supabase.
+    fetchAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    fetchAbortControllerRef.current = abortController;
+
     setIsLoading(true);
     setError(null);
     isInitialLoadRef.current = true;
-
 
     try {
       const periodLabel = startDate || endDate
@@ -269,84 +276,71 @@ export const useAtividades = (): UseAtividadesReturn => {
       console.log(`Buscando dados do Supabase: ${periodLabel}...`);
       const startTime = performance.now();
 
-      // Colunas específicas ao invés de select('*')
       const columns = 'id,numero_os,contrato,data_atividade,recurso,status_atividade,tipo_atividade,tipo_os1,cod_baixa_1,intervalo_tempo,duracao_minutos,latitude,longitude,cidade,bairro,numero_os1,tempo_de_deslocamento,contador_log,tecnico_referencia,status_execucao,is_revisita,ofensor_revisita,habilidade_trabalho,tecnologia';
-
-      // Conta e busca somente o periodo selecionado, sem baixar todo o historico.
-      let countQuery = externalSupabase
-        .from('atividades')
-        .select('id', { count: 'exact', head: true });
-
-      if (startDate) countQuery = countQuery.gte('data_atividade', startDate);
-      if (endDate) countQuery = countQuery.lte('data_atividade', endDate);
-
-      const { count, error: countError } = await countQuery;
-
-      if (countError) {
-        throw new Error(countError.message);
-      }
-
-      if (requestId !== fetchRequestIdRef.current) return;
-
-      const totalRows = count || 0;
-      console.log(`Total de registros no periodo: ${totalRows}`);
-
-      if (totalRows === 0) {
-        console.log("Nenhum dado encontrado no Supabase.");
-        setDataState([]);
-        return;
-      }
-
-      // Paginação em PARALELO (Promise.all) ao invés de sequencial
       const pageSize = 1000;
-      const totalPages = Math.ceil(totalRows / pageSize);
+      const concurrentPages = 4;
+      const allData: Atividade[] = [];
+      let page = 0;
+      let finished = false;
 
-      const pagePromises = Array.from({ length: totalPages }, (_, i) => {
-        let pageQuery = externalSupabase
-          .from('atividades')
-          .select(columns);
+      // Evita COUNT exact (uma consulta extra e cara) e pagina em pequenos blocos.
+      // Quatro páginas concorrentes dão boa velocidade sem disparar dezenas de
+      // requisições ao mesmo tempo.
+      while (!finished) {
+        const pageNumbers = Array.from({ length: concurrentPages }, (_, index) => page + index);
+        const results = await Promise.all(pageNumbers.map((pageNumber) => {
+          let pageQuery = externalSupabase
+            .from('atividades')
+            .select(columns);
 
-        if (startDate) pageQuery = pageQuery.gte('data_atividade', startDate);
-        if (endDate) pageQuery = pageQuery.lte('data_atividade', endDate);
+          if (startDate) pageQuery = pageQuery.gte('data_atividade', startDate);
+          if (endDate) pageQuery = pageQuery.lte('data_atividade', endDate);
 
-        return pageQuery
-          .order('data_atividade', { ascending: false })
-          .order('id', { ascending: false })
-          .range(i * pageSize, (i + 1) * pageSize - 1);
-      });
+          return pageQuery
+            .order('data_atividade', { ascending: false })
+            .order('id', { ascending: false })
+            .range(pageNumber * pageSize, (pageNumber + 1) * pageSize - 1)
+            .abortSignal(abortController.signal);
+        }));
 
-      const results = await Promise.all(pagePromises);
+        if (abortController.signal.aborted || requestId !== fetchRequestIdRef.current) return;
+
+        for (const result of results) {
+          if (result.error) throw new Error(result.error.message);
+          const rows = (result.data || []) as Atividade[];
+          allData.push(...rows);
+          if (rows.length < pageSize) {
+            finished = true;
+            break;
+          }
+        }
+
+        page += concurrentPages;
+      }
 
       if (requestId !== fetchRequestIdRef.current) return;
-
-      // Acumula com push (sem spread/cópia de array)
-      const allData: Atividade[] = [];
-      for (const result of results) {
-        if (result.error) {
-          console.warn('Erro em página:', result.error.message);
-          continue;
-        }
-        if (result.data) {
-          allData.push(...result.data);
-        }
-      }
 
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
       console.log(`Dados recebidos: ${allData.length} linhas em ${elapsed}s.`);
 
+      if (allData.length === 0) {
+        console.log('Nenhum dado encontrado no Supabase para o período selecionado.');
+        setDataState(current => current);
+        return;
+      }
+
       const convertedData = allData.map(atividadeToActivityData) as ActivityData[];
       setDataState(convertedData);
-      // Usa length como referência simples ao invés de JSON.stringify pesado
       lastSyncedDataRef.current = String(convertedData.length);
     } catch (err) {
-      if (requestId !== fetchRequestIdRef.current) return;
-      console.error("Erro ao buscar dados:", err);
+      if (abortController.signal.aborted || requestId !== fetchRequestIdRef.current) return;
+      console.error('Erro ao buscar dados:', err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar dados');
     } finally {
       if (requestId === fetchRequestIdRef.current) {
         setIsLoading(false);
         isInitialLoadRef.current = false;
-        console.log("Sistema pronto para sincronização.");
+        console.log('Sistema pronto para sincronização.');
         processPendingSync();
       }
     }

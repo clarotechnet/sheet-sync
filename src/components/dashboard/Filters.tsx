@@ -94,6 +94,12 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
 export const Filters: React.FC = () => {
   const { allData, filteredData, filters, setFilters, clearFilters, clearData } = useDashboard();
 
+  const invalidDateRange = Boolean(
+    filters.startDate
+    && filters.endDate
+    && filters.startDate > filters.endDate
+  );
+
   const baseData = useMemo(() => filterExcludedServiceTypes(allData), [allData]);
 
   const technicians = useMemo(() => {
@@ -247,6 +253,12 @@ export const Filters: React.FC = () => {
           />
         </div>
       </div>
+
+      {invalidDateRange && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+          A Data Inicial não pode ser posterior à Data Final. Ajuste o período para atualizar os dados.
+        </div>
+      )}
 
       <div className="flex gap-3 mt-6 flex-wrap">
         <Button variant="secondary" onClick={clearFilters} className="gap-2">

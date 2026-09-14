@@ -50,9 +50,22 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [filters, setFiltersState] = useState<FilterState>(createInitialFilters);
   const [filteredData, setFilteredData] = useState<ActivityData[]>([]);
 
-  // Fetch inicial
+  // Busca o período somente quando o intervalo é válido. O pequeno debounce evita
+  // consultas intermediárias enquanto o usuário está trocando as duas datas.
   useEffect(() => {
-    fetchData(filters.startDate, filters.endDate);
+    const invalidRange = Boolean(
+      filters.startDate
+      && filters.endDate
+      && filters.startDate > filters.endDate
+    );
+
+    if (invalidRange) return;
+
+    const timeoutId = window.setTimeout(() => {
+      fetchData(filters.startDate, filters.endDate);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
   }, [fetchData, filters.startDate, filters.endDate]);
 
   // Aplica filtros quando dados ou filtros mudam
@@ -113,8 +126,15 @@ export const DashboardProvider: React.FC<{ children: ReactNode }> = ({ children 
         );
       }
 
-      // Filtro por data - tenta múltiplas colunas incluindo "Intervalo de Tempo"
-      if (filters.startDate || filters.endDate) {
+      // Filtro por data - só aplica quando o intervalo é válido. Durante a troca
+      // das datas, não desmontamos o dashboard por causa de um estado intermediário.
+      const invalidDateRange = Boolean(
+        filters.startDate
+        && filters.endDate
+        && filters.startDate > filters.endDate
+      );
+
+      if ((filters.startDate || filters.endDate) && !invalidDateRange) {
         const startDate = filters.startDate ? new Date(filters.startDate + 'T00:00:00') : null;
         const endDate = filters.endDate ? new Date(filters.endDate + 'T23:59:59') : null;
 

@@ -94,21 +94,26 @@ const DashboardContent: React.FC = () => {
         {/* Conteúdo do Dashboard */}
         {hasData && (
           <>
-            {/* Filtros */}
+            {/* Filtros permanecem visíveis enquanto uma nova data é pesquisada. */}
             <Filters />
 
-            {/* Conteúdo das Tabs */}
-            <div className="tab-content">
-              {activeTab === 'summary' && <SummarySection />}
-              {activeTab === 'kpis' && <KPICards />}
-              {activeTab === 'productivity' && <ProductivitySection />}
-              {activeTab === 'charts' && <ChartSection />}
-              {activeTab === 'map' && <MapSection />}
-              {activeTab === 'table' && <DataTable />}
-              {activeTab === 'logs' && <LogsTable />}
-              {activeTab === 'revisitas' && <RevisitasTable />}
-              {activeTab === 'revisitas-ranking' && <RevisitasRanking />}
-            </div>
+            {isLoading ? (
+              <div className="rounded-lg border border-slate-200 bg-white py-14 shadow-sm">
+                <LoadingSpinner message="Buscando atividades no período selecionado..." />
+              </div>
+            ) : (
+              <div className="tab-content">
+                {activeTab === 'summary' && <SummarySection />}
+                {activeTab === 'kpis' && <KPICards />}
+                {activeTab === 'productivity' && <ProductivitySection />}
+                {activeTab === 'charts' && <ChartSection />}
+                {activeTab === 'map' && <MapSection />}
+                {activeTab === 'table' && <DataTable />}
+                {activeTab === 'logs' && <LogsTable />}
+                {activeTab === 'revisitas' && <RevisitasTable />}
+                {activeTab === 'revisitas-ranking' && <RevisitasRanking />}
+              </div>
+            )}
           </>
         )}
 
