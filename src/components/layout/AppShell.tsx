@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ClipboardList,
+  ChartNoAxesCombined,
   CircleDollarSign,
   LayoutDashboard,
   LockKeyhole,
@@ -36,6 +37,7 @@ const navigationItems: NavigationItem[] = [
   { label: 'Comissionamento Técnico', path: '/comissionamento', icon: WalletCards, adminOnly: true },
   { label: 'Gatilhos', path: '/gatilhos', icon: Trophy, adminOnly: true },
   { label: 'Premiação', path: '/premiacao', icon: CircleDollarSign, adminOnly: true },
+  { label: 'Tendência de Serviços', path: '/tendencia-servicos', icon: ChartNoAxesCombined },
   { label: 'Configurações', path: '/admin', icon: Settings, adminOnly: true },
 ];
 

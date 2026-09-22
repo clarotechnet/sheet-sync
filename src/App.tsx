@@ -15,6 +15,7 @@ import ModuleSelection from "./pages/ModuleSelection";
 import Comissionamento from "./pages/Comissionamento";
 import Gatilhos from "./pages/Gatilhos";
 import Premiacao from "./pages/Premiacao";
+import ServiceTrends from "./pages/ServiceTrends";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -90,6 +91,14 @@ const App = () => {
                 element={
                   <ProtectedRoute requireAdmin>
                     <Premiacao />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tendencia-servicos"
+                element={
+                  <ProtectedRoute>
+                    <ServiceTrends />
                   </ProtectedRoute>
                 }
               />
