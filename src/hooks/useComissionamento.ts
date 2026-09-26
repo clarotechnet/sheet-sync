@@ -8,6 +8,7 @@ import {
   TecnicoFrente,
 } from '@/types/comissionamento';
 import { normalizePersonName } from '@/utils/normalizeName';
+import { resolveComissionamentoIdentity } from '@/utils/resolveComissionamentoIdentity';
 import * as XLSX from 'xlsx';
 
 // Generate a hash from row fields INCLUDING row index to keep "duplicate" rows
@@ -183,16 +184,9 @@ export function useComissionamento() {
 
       if (frentes) {
         setTecnicosFrente(frentes as TecnicoFrente[]);
-
-        // Map frente to comissionamento data by nome
-        const frenteMap = new Map<string, string>();
-        (frentes as TecnicoFrente[]).forEach(tf => {
-          frenteMap.set(normalizePersonName(tf.nome), tf.frente);
-        });
-
         allData = allData.map(row => ({
           ...row,
-          frente: frenteMap.get(normalizePersonName(row.nome)) || row.frente || null
+          ...resolveComissionamentoIdentity(row, frentes as TecnicoFrente[]),
         }));
       }
 
@@ -292,16 +286,12 @@ export function useComissionamento() {
     // Enrich with frente from tecnicos_frentes before saving
     const { data: frentes } = await externalSupabase
       .from('tecnicos_frentes')
-      .select('nome, frente');
+      .select('nome, frente, cidade');
 
     if (frentes && frentes.length > 0) {
-      const frenteMap = new Map<string, string>();
-      frentes.forEach((tf: any) => {
-        frenteMap.set((tf.nome || '').trim().toUpperCase(), tf.frente);
-      });
       uniqueRecords = uniqueRecords.map(rec => ({
         ...rec,
-        frente: frenteMap.get((rec.nome || '').trim().toUpperCase()) || null
+        ...resolveComissionamentoIdentity(rec, frentes as TecnicoFrente[]),
       }));
     }
 
@@ -481,7 +471,7 @@ export function useComissionamento() {
 
   // Frentes KPI data
   const frentesData = useMemo((): FrenteKPIData[] => {
-    const frenteGroups = new Map<string, { tecnicos: Set<string>; tecComVenda: Set<string>; qtdConfirmada: number; totalGeral: number }>();
+    const frenteGroups = new Map<string, { tecnicos: Map<string, string>; tecComVenda: Set<string>; qtdConfirmada: number; totalGeral: number }>();
 
     // Initialize frentes from tecnicos_frentes, filtering by city if selected
     const filteredTecnicos = filters.cidade.length > 0
@@ -490,9 +480,9 @@ export function useComissionamento() {
 
     filteredTecnicos.forEach(tf => {
       if (!frenteGroups.has(tf.frente)) {
-        frenteGroups.set(tf.frente, { tecnicos: new Set(), tecComVenda: new Set(), qtdConfirmada: 0, totalGeral: 0 });
+        frenteGroups.set(tf.frente, { tecnicos: new Map(), tecComVenda: new Set(), qtdConfirmada: 0, totalGeral: 0 });
       }
-      frenteGroups.get(tf.frente)!.tecnicos.add(tf.nome.trim().toUpperCase());
+      frenteGroups.get(tf.frente)!.tecnicos.set(normalizePersonName(tf.nome), tf.nome.trim());
     });
 
     // Count contracts from filtered data
@@ -505,18 +495,16 @@ export function useComissionamento() {
 
       if (r.status === 'CONFIRMADA') {
         group.qtdConfirmada++;
-        group.tecComVenda.add((r.nome || '').trim().toUpperCase());
+        group.tecComVenda.add(normalizePersonName(r.nome));
       }
     });
 
     return Array.from(frenteGroups.entries()).map(([frente, g]) => {
       const totalTec = g.tecnicos.size;
-      const tecAdherente = g.tecComVenda.size;
-      const tecNaoVenderam = [...g.tecnicos].filter(n => !g.tecComVenda.has(n));
-
-
-      const nomeMap = new Map<string, string>();
-      tecnicosFrente.forEach(tf => nomeMap.set(tf.nome.trim().toUpperCase(), tf.nome));
+      const tecAdherente = [...g.tecnicos.keys()].filter(nome => g.tecComVenda.has(nome)).length;
+      const tecNaoVenderam = [...g.tecnicos.entries()]
+        .filter(([nome]) => !g.tecComVenda.has(nome))
+        .map(([, nome]) => nome);
 
       return {
         frente,
@@ -526,7 +514,7 @@ export function useComissionamento() {
         totalTecnicos: totalTec,
         tecAdherente,
         pctTecAdherente: totalTec > 0 ? (tecAdherente / totalTec) * 100 : 0,
-        tecNaoVenderam: tecNaoVenderam.map(n => nomeMap.get(n) || n)
+        tecNaoVenderam
       };
     }).sort((a, b) => b.qtdConsultivo - a.qtdConsultivo);
   }, [filteredData, tecnicosFrente, filters.cidade]);

@@ -8,12 +8,6 @@ interface Props {
   selectedFrente: string;
 }
 
-function shortName(full: string): string {
-  const parts = (full || '').trim().split(/\s+/);
-  if (parts.length <= 2) return full;
-  return `${parts[0]} ${parts[parts.length - 1]}`;
-}
-
 export const ComissionamentoFrentes: React.FC<Props> = ({ frentesData, selectedFrente }) => {
   const displayData = selectedFrente
     ? frentesData.filter(f => f.frente === selectedFrente)
@@ -141,7 +135,7 @@ export const ComissionamentoFrentes: React.FC<Props> = ({ frentesData, selectedF
                 {allNaoVenderam.map((t, i) => (
                   <tr key={`${t.frente}-${t.nome}`} className="border-b border-border/50 hover:bg-muted/20">
                     <td className="py-2 px-3 text-muted-foreground">{i + 1}</td>
-                    <td className="py-2 px-3 text-foreground font-medium">{shortName(t.nome)}</td>
+                    <td className="py-2 px-3 text-foreground font-medium">{t.nome}</td>
                     <td className="py-2 px-3 text-muted-foreground">{t.frente}</td>
                     <td className="py-2 px-3">
                       <span className="inline-flex items-center gap-1 text-destructive text-xs font-semibold">
