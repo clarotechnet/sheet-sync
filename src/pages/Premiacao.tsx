@@ -61,6 +61,7 @@ const today = new Date();
 const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 export default function Premiacao() {
   const gatilhos = useGatilhos();
+  const { fetchData: fetchGatilhos } = gatilhos;
   const [inicio, setInicio] = useState(formatDateInput(monthStart));
   const [fim, setFim] = useState(formatDateInput(today));
   const [cidade, setCidade] = useState('TODAS');
@@ -104,12 +105,12 @@ export default function Premiacao() {
   }, [fim, inicio]);
 
   const refresh = useCallback(async () => {
-    await Promise.all([gatilhos.fetchData(), fetchComissionamento()]);
-  }, [fetchComissionamento, gatilhos.fetchData]);
+    await Promise.all([fetchGatilhos(), fetchComissionamento()]);
+  }, [fetchComissionamento, fetchGatilhos]);
 
   useEffect(() => {
-    gatilhos.fetchData();
-  }, [gatilhos.fetchData]);
+    fetchGatilhos();
+  }, [fetchGatilhos]);
 
   useEffect(() => {
     if (!inicio || !fim || fim < inicio) return;
@@ -117,10 +118,10 @@ export default function Premiacao() {
   }, [fetchComissionamento, fim, inicio]);
 
   const periodoGatilho = useMemo(() => {
-    const first = gatilhos.resultados[0];
-    if (!first) return null;
-    return `${formatDatePtBr(first.periodo_inicio)} até ${formatDatePtBr(first.periodo_fim)}`;
-  }, [gatilhos.resultados]);
+    const period = gatilhos.periods.find((item) => item.inicio === gatilhos.activePeriod);
+    if (!period) return null;
+    return `${formatDatePtBr(period.inicio)} até ${formatDatePtBr(period.fim)}`;
+  }, [gatilhos.activePeriod, gatilhos.periods]);
   const linhas = useMemo<PremiacaoLinha[]>(() => {
     const colaboradoresByName = new Map(
       gatilhos.colaboradores.map((colaborador) => [normalizePersonName(colaborador.nome), colaborador]),

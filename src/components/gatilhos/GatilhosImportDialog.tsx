@@ -112,7 +112,7 @@ export function GatilhosImportDialog({
 
           <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>IDs novos serão incluídos. Quando o ID já existir, somente seus valores e período serão substituídos. Os demais estados serão preservados.</p>
+            <p>Os IDs desta carga serão atualizados apenas no período escolhido. Períodos anteriores e outras cidades serão preservados. Ajustes manuais de pontuação desse período também permanecem.</p>
           </div>
         </div>
 

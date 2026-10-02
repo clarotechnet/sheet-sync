@@ -8,6 +8,10 @@ export interface GatilhoResultado {
   valor_instalador: number;
   valor_auxiliar: number;
   valor_deslocamento: number;
+  valor_ajustado: number | null;
+  ajustado_em: string | null;
+  ajustado_por: string | null;
+  ajuste_motivo: string | null;
   periodo_inicio: string;
   periodo_fim: string;
   arquivo_nome: string | null;
@@ -34,6 +38,7 @@ export interface GatilhoFaixa {
 }
 
 export interface GatilhoRankingItem extends GatilhoResultado {
+  pontuacao: number;
   nomes: string[];
   nome_exibicao: string;
   cidade: string | null;

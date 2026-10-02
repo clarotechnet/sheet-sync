@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BadgeCheck, CircleDollarSign, Link2, MapPin, Search, Trophy, UsersRound } from 'lucide-react';
+import { BadgeCheck, CircleDollarSign, Link2, MapPin, Pencil, Search, Trophy, UsersRound } from 'lucide-react';
 import type { GatilhoRankingItem, GatilhoTipo } from '@/types/gatilhos';
 import { GATILHO_CIDADES, GATILHO_TIPOS, getGatilhoTipoLabel } from '@/types/gatilhos';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,13 @@ import { cn } from '@/lib/utils';
 interface GatilhosRankingProps {
   ranking: GatilhoRankingItem[];
   onEditVinculo: (item: GatilhoRankingItem) => void;
+  onEditPontuacao: (item: GatilhoRankingItem) => void;
 }
 
 const formatPoints = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const formatMoney = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function GatilhosRanking({ ranking, onEditVinculo }: GatilhosRankingProps) {
+export function GatilhosRanking({ ranking, onEditVinculo, onEditPontuacao }: GatilhosRankingProps) {
   const [tipo, setTipo] = useState<'TODOS' | GatilhoTipo>('TODOS');
   const [cidade, setCidade] = useState('TODAS');
   const [search, setSearch] = useState('');
@@ -31,7 +32,7 @@ export function GatilhosRanking({ ranking, onEditVinculo }: GatilhosRankingProps
   }, [cidade, ranking, search, tipo]);
 
   const totals = useMemo(() => ({
-    pontos: filtered.reduce((sum, item) => sum + item.valor, 0),
+    pontos: filtered.reduce((sum, item) => sum + item.pontuacao, 0),
     premio: filtered.reduce((sum, item) => sum + item.premio, 0),
     vinculados: filtered.filter((item) => item.vinculado).length,
     atingiram: filtered.filter((item) => item.faixa_atual).length,
@@ -114,9 +115,9 @@ export function GatilhosRanking({ ranking, onEditVinculo }: GatilhosRankingProps
             <tbody className="divide-y divide-slate-100">
               {filtered.map((item, index) => {
                 const target = item.proxima_faixa?.pontos || item.faixa_atual?.pontos || 0;
-                const progress = target > 0 ? Math.min(100, (item.valor / target) * 100) : 0;
+                const progress = target > 0 ? Math.min(100, (item.pontuacao / target) * 100) : 0;
                 return (
-                  <tr key={item.id_externo} className="hover:bg-slate-50/80">
+                  <tr key={`${item.periodo_inicio}:${item.id_externo}`} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3 font-bold text-slate-400">{index + 1}</td>
                     <td className="max-w-[340px] px-4 py-3">
                       <p className={cn('font-bold', item.vinculado ? 'text-slate-950' : 'text-amber-700')}>{item.nome_exibicao}</p>
@@ -124,7 +125,15 @@ export function GatilhosRanking({ ranking, onEditVinculo }: GatilhosRankingProps
                     </td>
                     <td className="px-4 py-3 text-slate-600">{item.cidade || '-'}</td>
                     <td className="px-4 py-3 text-slate-600">{getGatilhoTipoLabel(item.tipo)}</td>
-                    <td className="px-4 py-3 text-right text-base font-extrabold text-slate-950">{formatPoints(item.valor)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-base font-extrabold text-slate-950">{formatPoints(item.pontuacao)}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Editar pontuação" aria-label={`Editar pontuação de ${item.nome_exibicao}`} onClick={() => onEditPontuacao(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {item.valor_ajustado !== null && <p className="text-xs text-amber-700">Ajustado · importado {formatPoints(item.valor)}</p>}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
                       <p><span className="font-semibold text-slate-700">Inst.</span> {formatMoney(item.valor_instalador)}</p>
                       <p><span className="font-semibold text-slate-700">Aux.</span> {formatMoney(item.valor_auxiliar)}</p>
@@ -134,7 +143,7 @@ export function GatilhosRanking({ ranking, onEditVinculo }: GatilhosRankingProps
                       {target > 0 ? (
                         <div>
                           <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-sky-500" style={{ width: `${progress}%` }} /></div>
-                          <p className="mt-1 text-[11px] text-slate-500">{item.proxima_faixa ? `Faltam ${formatPoints(Math.max(0, item.proxima_faixa.pontos - item.valor))}` : 'Faixa máxima'}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">{item.proxima_faixa ? `Faltam ${formatPoints(Math.max(0, item.proxima_faixa.pontos - item.pontuacao))}` : 'Faixa máxima'}</p>
                         </div>
                       ) : <span className="text-xs text-slate-400">Classifique o ID</span>}
                     </td>

@@ -8,7 +8,9 @@ import { GatilhosRanking } from '@/components/gatilhos/GatilhosRanking';
 import { GatilhosVinculos } from '@/components/gatilhos/GatilhosVinculos';
 import { GatilhosFaixas } from '@/components/gatilhos/GatilhosFaixas';
 import { GatilhoVinculoDialog } from '@/components/gatilhos/GatilhoVinculoDialog';
+import { GatilhoPontuacaoDialog } from '@/components/gatilhos/GatilhoPontuacaoDialog';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGatilhos } from '@/hooks/useGatilhos';
 import type { GatilhoRankingItem } from '@/types/gatilhos';
 
@@ -29,16 +31,16 @@ export default function Gatilhos() {
   const [activeTab, setActiveTab] = useState('ranking');
   const [importOpen, setImportOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<GatilhoRankingItem | null>(null);
+  const [scoreItem, setScoreItem] = useState<GatilhoRankingItem | null>(null);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const period = useMemo(() => {
-    const first = hook.resultados[0];
-    if (!first) return null;
-    return `${formatDate(first.periodo_inicio)} até ${formatDate(first.periodo_fim)}`;
-  }, [hook.resultados]);
+  const period = useMemo(
+    () => hook.periods.find((item) => item.inicio === hook.activePeriod),
+    [hook.activePeriod, hook.periods],
+  );
 
   return (
     <AppShell>
@@ -50,12 +52,19 @@ export default function Gatilhos() {
               <p className="mt-1 text-sm font-medium text-slate-500">Ranking operacional e premiação por produção</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {period && (
-                <div className="mr-1 hidden items-center gap-2 text-sm font-medium text-slate-500 sm:flex">
+              <Select value={hook.activePeriod || undefined} onValueChange={hook.setSelectedPeriod} disabled={hook.periods.length === 0}>
+                <SelectTrigger className="w-full min-w-[230px] bg-white sm:w-auto" aria-label="Período dos gatilhos">
                   <CalendarDays className="h-4 w-4" />
-                  {period}
-                </div>
-              )}
+                  <SelectValue placeholder="Sem período" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hook.periods.map((item) => (
+                    <SelectItem key={item.inicio} value={item.inicio}>
+                      {formatDate(item.inicio)} até {formatDate(item.fim)} ({item.total} IDs)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button type="button" variant="outline" onClick={fetchData} disabled={hook.isLoading}>
                 <RefreshCw className={hook.isLoading ? 'animate-spin' : ''} />
                 Atualizar
@@ -69,6 +78,8 @@ export default function Gatilhos() {
 
           <TabNavigation tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
+          {period && <p className="text-sm text-slate-500">Período selecionado: {formatDate(period.inicio)} até {formatDate(period.fim)}</p>}
+
           {hook.error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
               {hook.error}
@@ -79,7 +90,7 @@ export default function Gatilhos() {
             <LoadingSpinner message="Carregando gatilhos..." />
           ) : (
             <div>
-              {activeTab === 'ranking' && <GatilhosRanking ranking={hook.ranking} onEditVinculo={setSelectedItem} />}
+              {activeTab === 'ranking' && <GatilhosRanking ranking={hook.ranking} onEditVinculo={setSelectedItem} onEditPontuacao={setScoreItem} />}
               {activeTab === 'vinculos' && <GatilhosVinculos ranking={hook.ranking} onEdit={setSelectedItem} />}
               {activeTab === 'faixas' && <GatilhosFaixas faixas={hook.faixas} onSave={hook.saveFaixas} />}
             </div>
@@ -103,6 +114,12 @@ export default function Gatilhos() {
         tecnicosFrente={hook.tecnicosFrente}
         onSave={hook.saveVinculo}
         onDelete={hook.deleteVinculo}
+      />
+      <GatilhoPontuacaoDialog
+        open={Boolean(scoreItem)}
+        onOpenChange={(open) => !open && setScoreItem(null)}
+        item={scoreItem}
+        onSave={hook.savePontuacao}
       />
     </AppShell>
   );

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import type { ColaboradorCadastrado, TecnicoFrente } from '@/types/comissionamento';
+import { calcularGatilhoPontuacao } from '@/utils/gatilhosPontuacao';
 import type {
   GatilhoFaixa,
   GatilhoImportRow,
@@ -51,7 +52,7 @@ const findHeader = (headers: unknown[], expected: string) =>
 export const getDefaultGatilhoPeriod = () => {
   const today = new Date();
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const firstDay = new Date(yesterday.getFullYear(), yesterday.getMonth(), 1);
   const format = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -119,6 +120,7 @@ const parseGatilhosWorkbook = async (file: File): Promise<GatilhoImportRow[]> =>
 
 export function useGatilhos() {
   const [state, setState] = useState<GatilhosDataState>(EMPTY_STATE);
+  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,9 +130,25 @@ export function useGatilhos() {
     setError(null);
 
     try {
-      const [resultadosResult, vinculosResult, faixasResult, colaboradoresResult, tecnicosResult] =
+      const resultados: GatilhoResultado[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error: queryError } = await externalSupabase
+          .from('gatilhos_resultados')
+          .select('*')
+          .order('periodo_inicio', { ascending: false })
+          .order('id_externo')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (queryError) throw queryError;
+        const rows = (data || []) as GatilhoResultado[];
+        resultados.push(...rows);
+        if (rows.length < pageSize) break;
+        page += 1;
+      }
+
+      const [vinculosResult, faixasResult, colaboradoresResult, tecnicosResult] =
         await Promise.all([
-          externalSupabase.from('gatilhos_resultados').select('*').order('valor', { ascending: false }),
           externalSupabase
             .from('gatilhos_vinculos')
             .select('id, id_externo, colaborador_id, cidade, tipo, papel, colaborador:colaboradores_cadastrados(id, nome, cpf, setor)')
@@ -144,7 +162,6 @@ export function useGatilhos() {
         ]);
 
       const firstError = [
-        resultadosResult.error,
         vinculosResult.error,
         faixasResult.error,
         colaboradoresResult.error,
@@ -153,7 +170,7 @@ export function useGatilhos() {
       if (firstError) throw firstError;
 
       setState({
-        resultados: (resultadosResult.data || []) as GatilhoResultado[],
+        resultados,
         vinculos: (vinculosResult.data || []) as unknown as GatilhoVinculo[],
         faixas: (faixasResult.data || []) as GatilhoFaixa[],
         colaboradores: (colaboradoresResult.data || []) as ColaboradorCadastrado[],
@@ -166,6 +183,22 @@ export function useGatilhos() {
     }
   }, []);
 
+  const periods = useMemo(() => {
+    const byStart = new Map<string, { inicio: string; fim: string; total: number }>();
+    state.resultados.forEach((row) => {
+      const current = byStart.get(row.periodo_inicio);
+      byStart.set(row.periodo_inicio, {
+        inicio: row.periodo_inicio,
+        fim: current && current.fim > row.periodo_fim ? current.fim : row.periodo_fim,
+        total: (current?.total || 0) + 1,
+      });
+    });
+    return Array.from(byStart.values()).sort((a, b) => b.inicio.localeCompare(a.inicio));
+  }, [state.resultados]);
+  const activePeriod = periods.some((period) => period.inicio === selectedPeriod)
+    ? selectedPeriod
+    : periods[0]?.inicio || null;
+
   const ranking = useMemo<GatilhoRankingItem[]>(() => {
     const vinculosPorId = new Map<string, GatilhoVinculo[]>();
     state.vinculos.forEach((vinculo) => {
@@ -174,22 +207,20 @@ export function useGatilhos() {
       vinculosPorId.set(vinculo.id_externo, current);
     });
 
-    return state.resultados.map((resultado) => {
+    return state.resultados.filter((resultado) => resultado.periodo_inicio === activePeriod).map((resultado) => {
       const vinculos = (vinculosPorId.get(resultado.id_externo) || [])
         .sort((a, b) => (a.papel === 'INSTALADOR' ? 0 : 1) - (b.papel === 'INSTALADOR' ? 0 : 1));
       const tipo = vinculos[0]?.tipo || null;
       const cidade = vinculos[0]?.cidade || null;
-      const faixas = state.faixas
-        .filter((faixa) => faixa.tipo === tipo)
-        .sort((a, b) => a.pontos - b.pontos);
-      const atingidas = faixas.filter((faixa) => Number(resultado.valor) >= Number(faixa.pontos));
-      const faixaAtual = atingidas.at(-1) || null;
-      const proximaFaixa = faixas.find((faixa) => Number(resultado.valor) < Number(faixa.pontos)) || null;
+      const faixas = state.faixas.filter((faixa) => faixa.tipo === tipo);
+      const { pontuacao, faixaAtual, proximaFaixa, premio } = calcularGatilhoPontuacao(resultado, faixas);
       const nomes = vinculos.map((vinculo) => vinculo.colaborador.nome);
 
       return {
         ...resultado,
         valor: Number(resultado.valor),
+        valor_ajustado: resultado.valor_ajustado == null ? null : Number(resultado.valor_ajustado),
+        pontuacao,
         valor_instalador: Number(resultado.valor_instalador),
         valor_auxiliar: Number(resultado.valor_auxiliar),
         valor_deslocamento: Number(resultado.valor_deslocamento),
@@ -200,10 +231,10 @@ export function useGatilhos() {
         vinculado: nomes.length > 0 && Boolean(tipo) && Boolean(cidade),
         faixa_atual: faixaAtual,
         proxima_faixa: proximaFaixa,
-        premio: faixaAtual ? Number(faixaAtual.premio) : 0,
+        premio,
       };
-    }).sort((a, b) => b.valor - a.valor);
-  }, [state.faixas, state.resultados, state.vinculos]);
+    }).sort((a, b) => b.pontuacao - a.pontuacao);
+  }, [activePeriod, state.faixas, state.resultados, state.vinculos]);
 
   const importWorkbook = useCallback(async (
     file: File,
@@ -226,11 +257,28 @@ export function useGatilhos() {
           .join(' ');
         throw new Error(message || 'O banco rejeitou a substituição da carga.');
       }
+      setSelectedPeriod(periodoInicio);
       await fetchData();
       return Number(data) || rows.length;
     } finally {
       setIsImporting(false);
     }
+  }, [fetchData]);
+
+  const savePontuacao = useCallback(async (
+    idExterno: string,
+    periodoInicio: string,
+    valorAjustado: number | null,
+    motivo: string,
+  ) => {
+    const { error: saveError } = await externalSupabase.rpc('ajustar_gatilho_pontuacao', {
+      p_id_externo: idExterno,
+      p_periodo_inicio: periodoInicio,
+      p_valor_ajustado: valorAjustado,
+      p_motivo: motivo,
+    });
+    if (saveError) throw saveError;
+    await fetchData();
   }, [fetchData]);
 
   const saveVinculo = useCallback(async (
@@ -270,11 +318,15 @@ export function useGatilhos() {
   return {
     ...state,
     ranking,
+    periods,
+    activePeriod,
+    setSelectedPeriod,
     isLoading,
     isImporting,
     error,
     fetchData,
     importWorkbook,
+    savePontuacao,
     saveVinculo,
     deleteVinculo,
     saveFaixas,
