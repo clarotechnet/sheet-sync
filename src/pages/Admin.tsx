@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ import {
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { CollaboratorFrentes } from '@/components/admin/CollaboratorFrentes';
+import { TechnicianSupervisors } from '@/components/admin/TechnicianSupervisors';
 
 interface PendingUser {
   id: string;
@@ -70,9 +72,15 @@ interface AllUser {
 export default function Admin() {
   const { isAdmin, isLoading: authLoading, onlineUserIds, isPresenceConnected, user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('users');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab') || '';
+    return ['users', 'collaborators', 'frentes', 'supervisors'].includes(tab) ? tab : 'users';
+  });
   const [frentesRefreshKey, setFrentesRefreshKey] = useState(0);
   const [frentesLoading, setFrentesLoading] = useState(false);
+  const [supervisorsRefreshKey, setSupervisorsRefreshKey] = useState(0);
+  const [supervisorsLoading, setSupervisorsLoading] = useState(false);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [onlyOnline, setOnlyOnline] = useState(false);
@@ -349,8 +357,12 @@ export default function Admin() {
     return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
-  const currentTabLoading = activeTab === 'users' ? isLoading : activeTab === 'frentes' ? frentesLoading : collaboratorsLoading;
+  const currentTabLoading = activeTab === 'users' ? isLoading : activeTab === 'frentes' ? frentesLoading : activeTab === 'supervisors' ? supervisorsLoading : collaboratorsLoading;
   const refreshCurrentTab = () => {
+    if (activeTab === 'supervisors') {
+      setSupervisorsRefreshKey(current => current + 1);
+      return;
+    }
     if (activeTab === 'frentes') {
       setFrentesRefreshKey(current => current + 1);
       return;
@@ -397,7 +409,7 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-md border border-slate-200 bg-white p-1 sm:inline-flex sm:w-auto">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-md border border-slate-200 bg-white p-1 sm:flex sm:w-fit sm:flex-wrap">
             <TabsTrigger value="users" className="w-full justify-start gap-2 rounded-md px-4 py-2.5 sm:w-auto">
               <Users className="h-4 w-4" />
               Usuários e acessos
@@ -409,6 +421,10 @@ export default function Admin() {
             <TabsTrigger value="frentes" className="w-full justify-start gap-2 rounded-md px-4 py-2.5 sm:w-auto">
               <Users className="h-4 w-4" />
               Frentes dos colaboradores
+            </TabsTrigger>
+            <TabsTrigger value="supervisors" className="w-full justify-start gap-2 rounded-md px-4 py-2.5 sm:w-auto">
+              <Users className="h-4 w-4" />
+              Técnicos e supervisores
             </TabsTrigger>
           </TabsList>
 
@@ -736,6 +752,9 @@ export default function Admin() {
           </TabsContent>
           <TabsContent value="frentes">
             <CollaboratorFrentes refreshKey={frentesRefreshKey} onLoadingChange={setFrentesLoading} />
+          </TabsContent>
+          <TabsContent value="supervisors">
+            <TechnicianSupervisors refreshKey={supervisorsRefreshKey} onLoadingChange={setSupervisorsLoading} />
           </TabsContent>
         </Tabs>
 

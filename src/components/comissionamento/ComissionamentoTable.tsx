@@ -92,7 +92,7 @@ export const ComissionamentoTable: React.FC<Props> = ({
                 {columns.map(col => (
                   <th
                     key={col.key}
-                    onClick={col.key !== 'actions' ? () => handleSort(col.key) : undefined}
+                    onClick={() => { if (col.key !== 'actions') handleSort(col.key); }}
                     className={`whitespace-nowrap ${col.key !== 'actions' ? 'cursor-pointer hover:text-primary transition-colors' : 'w-10'}`}
                   >
                             {col.label} {sortField === col.key ? (sortAsc ? '▲' : '▼') : ''}

@@ -14,6 +14,7 @@ import { MapSection } from '@/components/dashboard/MapSection';
 import { LogsTable } from '@/components/dashboard/LogsTable';
 import { RevisitasTable } from '@/components/dashboard/RevisitasTable';
 import { RevisitasRanking } from '@/components/dashboard/RevisitasRanking';
+import { TechnicianRanking } from '@/components/dashboard/TechnicianRanking';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, RefreshCw } from 'lucide-react';
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'summary', label: 'Resumo' },
   { id: 'kpis', label: 'KPIs' },
   { id: 'productivity', label: 'Produtividade' },
+  { id: 'technician-ranking', label: 'Ranking técnico' },
   { id: 'charts', label: 'Gráficos' },
   { id: 'map', label: 'Mapa' },
   { id: 'table', label: 'Análise Detalhada' },
@@ -34,6 +36,10 @@ const DashboardContent: React.FC = () => {
   const { allData, isLoading, isSyncing, error, refreshData } = useDashboard();
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('summary');
+  const [rankingRefreshKey, setRankingRefreshKey] = useState(0);
+  const [rankingLoading, setRankingLoading] = useState(false);
+  const rankingActive = activeTab === 'technician-ranking';
+  const currentLoading = rankingActive ? rankingLoading : isLoading || isSyncing;
 
   const hasData = allData.length > 0;
 
@@ -53,20 +59,18 @@ const DashboardContent: React.FC = () => {
                   {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
                 </span>
               </div>
-              <Button variant="outline" onClick={refreshData} disabled={isLoading || isSyncing}>
-                <RefreshCw className={(isLoading || isSyncing) ? 'animate-spin' : ''} />
-                {isSyncing ? 'Sincronizando...' : 'Atualizar'}
+              <Button variant="outline" onClick={rankingActive ? () => setRankingRefreshKey((current) => current + 1) : refreshData} disabled={currentLoading}>
+                <RefreshCw className={currentLoading ? 'animate-spin' : ''} />
+                {!rankingActive && isSyncing ? 'Sincronizando...' : 'Atualizar'}
               </Button>
             </div>
           </div>
 
-          {hasData && (
-            <TabNavigation
-              tabs={TABS}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
-          )}
+          <TabNavigation
+            tabs={TABS}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
 
         {/* Status de sincronização */}
         {/* {isSyncing && (
@@ -77,22 +81,23 @@ const DashboardContent: React.FC = () => {
         )} */}
 
         {/* Erro */}
-        {error && (
+        {error && !rankingActive && (
           <div className="alert alert-error">
             <span>{error} - Faça upload de um arquivo para começar.</span>
           </div>
         )}
 
         {/* Upload de arquivo */}
-        {isAdmin && <FileUpload />}
+        {isAdmin && !rankingActive && <FileUpload />}
 
         {/* Loading inicial */}
-        {isLoading && !hasData && (
+        {isLoading && !hasData && !rankingActive && (
           <LoadingSpinner message="Conectando ao Banco de Dados..." />
         )}
 
         {/* Conteúdo do Dashboard */}
-        {hasData && (
+        {rankingActive && <TechnicianRanking refreshKey={rankingRefreshKey} onLoadingChange={setRankingLoading} />}
+        {hasData && !rankingActive && (
           <>
             {/* Filtros permanecem visíveis enquanto uma nova data é pesquisada. */}
             <Filters />
@@ -118,7 +123,7 @@ const DashboardContent: React.FC = () => {
         )}
 
         {/* Mensagem quando não há dados e não está carregando */}
-        {!isLoading && !hasData && !error && (
+        {!isLoading && !hasData && !error && !rankingActive && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               Faça upload de um arquivo CSV ou XLSX para começar.

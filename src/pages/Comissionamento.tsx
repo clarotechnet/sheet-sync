@@ -7,6 +7,7 @@ import { ComissionamentoTable } from '@/components/comissionamento/Comissionamen
 
 import { ComissionamentoFrentes } from '@/components/comissionamento/ComissionamentoFrentes';
 import { ComissionamentoValores } from '@/components/comissionamento/ComissionamentoValores';
+import { ComissionamentoReports } from '@/components/comissionamento/ComissionamentoReports';
 import { TabNavigation } from '@/components/dashboard/TabNavigation';
 import { LoadingSpinner } from '@/components/dashboard/LoadingSpinner';
 import { AppShell } from '@/components/layout/AppShell';
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'frentes', label: 'Frentes' },
   { id: 'table', label: 'Dados Detalhados' },
   { id: 'valores', label: 'Valores' },
+  { id: 'relatorios', label: 'Relatórios' },
 ];
 
 const Comissionamento: React.FC = () => {
@@ -65,7 +67,7 @@ const Comissionamento: React.FC = () => {
           </div>
         )}
 
-        <ComissionamentoFilters
+        {activeTab !== 'relatorios' && <ComissionamentoFilters
           filters={hook.filters}
           setFilters={hook.setFilters}
           uniqueProposta={hook.uniqueProposta}
@@ -81,7 +83,7 @@ const Comissionamento: React.FC = () => {
           onManualSubmit={hook.submitManualEntry}
           isLoading={hook.isLoading}
           filteredData={hook.data}
-        />
+        />}
 
         {hook.isLoading && !hasData && (
           <LoadingSpinner message="Carregando dados de comissionamento..." />
@@ -116,6 +118,9 @@ const Comissionamento: React.FC = () => {
               )}
               {activeTab === 'valores' && (
                 <ComissionamentoValores data={hook.data} colaboradores={hook.colaboradores} />
+              )}
+              {activeTab === 'relatorios' && (
+                <ComissionamentoReports data={hook.allData} loading={hook.isLoading} />
               )}
             </div>
           </>
