@@ -42,7 +42,7 @@ const returnActivity = (fields = {}) => activity({ login_tecnico: executor.login
 test('attributes the return to the trigger offender even without a current-period installation', () => {
   const activities = [returnActivity()];
   const returns = resolveRankingReturns(activities, [storedReturn()]);
-  const rows = calculateTechnicianRanking(activities, [technician, executor], false, returns);
+  const rows = calculateTechnicianRanking(activities, [technician, executor], returns);
   const previous = rows.find(row => row.login === 'Z100'), current = rows.find(row => row.login === 'Z200');
   assert.equal(previous.retornosCredenciados, 1);
   assert.equal(previous.contratos, 0);
@@ -57,7 +57,7 @@ test('deduplicates return tasks on one day and follows a new offender on a later
   const activities = [returnActivity(), returnActivity({ id_atividade: '2' }), returnActivity({ id_atividade: '3', data_atividade: '2026-10-15' })];
   const returns = resolveRankingReturns(activities, [storedReturn(), storedReturn({ id: 'db2', data_atividade: '2026-10-15', ofensor_revisita: executor.nome })]);
   assert.equal(returns.length, 2);
-  const rows = calculateTechnicianRanking(activities, [technician, executor], false, returns);
+  const rows = calculateTechnicianRanking(activities, [technician, executor], returns);
   assert.equal(rows.find(row => row.login === 'Z100').retornosCredenciados, 1);
   assert.equal(rows.find(row => row.login === 'Z200').retornosCredenciados, 1);
   assert.equal(rows.find(row => row.login === 'Z200').contratos, 2);
@@ -76,7 +76,7 @@ test('missing or conflicting attribution stays pending rather than using the cur
     const returns = resolveRankingReturns([returnActivity()], records);
     assert.equal(returns[0].ofensor, null);
     assert.ok(returns[0].pendencia);
-    const rows = calculateTechnicianRanking([returnActivity()], [technician, executor], false, returns);
+    const rows = calculateTechnicianRanking([returnActivity()], [technician, executor], returns);
     assert.equal(rows.reduce((sum,row)=>sum+row.retornosCredenciados,0),0);
   }
 });
@@ -91,7 +91,7 @@ test('matches the exact contract/date/WO/city and does not borrow an offender fr
 test('an offender absent from the registry is visible without guessing a login or supervisor', () => {
   const activities=[returnActivity()];
   const returns=resolveRankingReturns(activities, [storedReturn({ ofensor_revisita:'TECNICO ANTERIOR SEM CADASTRO' })]);
-  const rows=calculateTechnicianRanking(activities,[executor],false,returns);
+  const rows=calculateTechnicianRanking(activities,[executor],returns);
   const previous=rows.find(row=>row.nome==='TECNICO ANTERIOR SEM CADASTRO');
   assert.equal(previous.retornosCredenciados,1);
   assert.equal(previous.login,'Não informado');
@@ -103,7 +103,7 @@ test('editing a display name preserves the offender identity through an exact so
   const activities=[activity({ recurso:technician.nome, contrato:'INSTALLATION' }),returnActivity()];
   const returns=resolveRankingReturns(activities,[storedReturn()]);
   const renamed={...technician,nome:'NOVO NOME COMPLETO DO TECNICO'};
-  const rows=calculateTechnicianRanking(activities,[renamed,executor],false,returns);
+  const rows=calculateTechnicianRanking(activities,[renamed,executor],returns);
   const original=rows.find(row=>row.login==='Z100');
   assert.equal(original.nome,renamed.nome);
   assert.equal(original.retornosCredenciados,1);
@@ -116,12 +116,32 @@ test('does not confuse 409 with 4090 or other codes', () => {
   assert.equal(hasCode409(['409 - CONCLUÍDO']), true);
 });
 
-test('an unmapped login stays visible and an empty technician has no percentage base', () => {
-  const rows = calculateTechnicianRanking([activity({ login_tecnico: 'Z200' })], [technician], true);
+test('unmapped data stays visible but registered technicians with no data are excluded', () => {
+  const rows = calculateTechnicianRanking([activity({ login_tecnico: 'Z200' })], [technician]);
   assert.equal(rows.find((row) => row.login === 'Z200').supervisor, 'Não cadastrado');
-  assert.equal(rows.find((row) => row.login === 'Z100').porcentagem, null);
+  assert.equal(rows.find((row) => row.login === 'Z100'), undefined);
   const changed = calculateTechnicianRanking([activity()], [{ ...technician, supervisor: 'SUPERVISOR B' }]);
   assert.equal(changed[0].supervisor, 'SUPERVISOR B');
+});
+
+test('inactive technicians are excluded from contracts and attributed returns without deleting history', () => {
+  const activities=[activity({recurso:technician.nome}),returnActivity()];
+  const returns=resolveRankingReturns(activities,[storedReturn()]);
+  const inactive=calculateTechnicianRanking(activities,[{...technician,ativo:false},executor],returns);
+  assert.equal(inactive.find(row=>row.login==='Z100'),undefined);
+  assert.equal(inactive.reduce((sum,row)=>sum+row.retornosCredenciados,0),0);
+  const active=calculateTechnicianRanking(activities,[{...technician,ativo:true},executor],returns);
+  assert.equal(active.find(row=>row.login==='Z100').contratos,1);
+  assert.equal(active.find(row=>row.login==='Z100').retornosCredenciados,1);
+  assert.equal(activities.length,2);
+});
+
+test('technicians with only attributed returns remain visible; completely empty ones never appear', () => {
+  assert.deepEqual(calculateTechnicianRanking([], [technician]),[]);
+  const activities=[returnActivity()];
+  const rows=calculateTechnicianRanking(activities,[technician,executor],resolveRankingReturns(activities,[storedReturn()]));
+  assert.equal(rows.find(row=>row.login==='Z100').contratos,0);
+  assert.equal(rows.find(row=>row.login==='Z100').retornosCredenciados,1);
 });
 
 const headers = ['Recurso', 'Login do Técnico', 'Data', 'Contrato', 'Status da Atividade', 'ID da Atividade', 'Tipo de Atividade', 'Tipo de Atividade', 'Cód de Baixa 1', 'Cód de Baixa 2', 'Credenciada/parceira anterior'];

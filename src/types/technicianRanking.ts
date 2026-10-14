@@ -3,9 +3,11 @@ export interface RankingTechnicianInput {
   nome: string;
   cidade: string;
   supervisor: string;
+  ativo?: boolean;
 }
 
 export interface RankingTechnician extends RankingTechnicianInput {
+  ativo: boolean;
   id: string;
   created_at: string;
   updated_at: string;

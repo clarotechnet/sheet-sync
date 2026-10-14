@@ -25,7 +25,7 @@ export function useRankingTechnicians(refreshKey = 0) {
       const result: RankingTechnician[] = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error: queryError } = await externalSupabase.from('ranking_tecnicos')
-          .select('id, login, nome, cidade, supervisor, created_at, updated_at')
+          .select('id, login, nome, cidade, supervisor, ativo, created_at, updated_at')
           .order('nome').order('id').range(offset, offset + 999);
         if (queryError) throw queryError;
         result.push(...(data || []) as RankingTechnician[]);

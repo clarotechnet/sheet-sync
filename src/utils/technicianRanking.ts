@@ -127,7 +127,7 @@ export function resolveRankingReturns(activities: RankingActivity[], records: Da
   }).sort((a, b) => b.data.localeCompare(a.data) || a.contrato.localeCompare(b.contrato));
 }
 
-export function calculateTechnicianRanking(activities: RankingActivity[], technicians: RankingTechnicianInput[], includeEmpty = false, returns: RankedReturn[] = []): TechnicianRankingRow[] {
+export function calculateTechnicianRanking(activities: RankingActivity[], technicians: RankingTechnicianInput[], returns: RankedReturn[] = []): TechnicianRankingRow[] {
   const byLogin = new Map(technicians.map((row) => [normalizeTechnicianLogin(row.login), row]));
   const byName = new Map<string, RankingTechnicianInput[]>();
   technicians.forEach((row) => { const key = normalizePersonName(row.nome); byName.set(key, [...(byName.get(key) || []), row]); });
@@ -147,7 +147,6 @@ export function calculateTechnicianRanking(activities: RankingActivity[], techni
     });
     return groups.get(key)!;
   };
-  if (includeEmpty) technicians.forEach((row) => ensure(normalizeTechnicianLogin(row.login), row.login, row.nome, row.cidade, row));
   activities.forEach((activity) => {
     if (!activity.contrato?.trim()) return;
     let login = normalizeTechnicianLogin(activity.login_tecnico || activity.concluiu_atividade);
@@ -156,6 +155,7 @@ export function calculateTechnicianRanking(activities: RankingActivity[], techni
       if (matches.length === 1) login = normalizeTechnicianLogin(matches[0].login);
     }
     const registry = byLogin.get(login);
+    if (registry?.ativo === false) return;
     const key = login || `nome:${normalizePersonName(activity.recurso)}|${normalizeRankingCity(activity.cidade)}`;
     const group = ensure(key, login, activity.recurso, normalizeRankingCity(activity.cidade), registry);
     group.row.atividades += 1;
@@ -182,6 +182,7 @@ export function calculateTechnicianRanking(activities: RankingActivity[], techni
     });
     const login = logins.size === 1 ? [...logins][0] : '';
     const registry = byLogin.get(login);
+    if (registry?.ativo === false) return;
     const key = login || `nome:${normalizePersonName(item.ofensor)}|${item.cidade}`;
     const group = ensure(key, login, item.ofensor, item.cidade, registry);
     if (!group.row.retornosDetalhes.some((row) => row.data === item.data && row.contrato === item.contrato)) group.row.retornosDetalhes.push(item);
