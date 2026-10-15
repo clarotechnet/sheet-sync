@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Download, FileText, Image, Loader2, Search, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRankingTechnicians, useTechnicianRankingActivities, useRankingReturnAttributions } from '@/hooks/useTechnicianRanking';
+import { useRankingTechnicians, useTechnicianRankingActivities, useRankingManagementActivities } from '@/hooks/useTechnicianRanking';
 import { calculateTechnicianRanking, resolveRankingReturns } from '@/utils/technicianRanking';
+import { reconcileRankingActivities } from '@/utils/reconcileRankingActivities';
 import { normalizePersonName } from '@/utils/normalizeName';
 import { buildTechnicianRankingReport } from '@/utils/technicianRankingReportData';
 import type { RankingReportImageDownload } from '@/utils/technicianRankingReportExport';
-import type { RankingActivity, RankingTechnicianInput, TechnicianRankingRow, DatabaseReturnRecord, RankedReturn } from '@/types/technicianRanking';
+import type { RankingActivity, RankingTechnicianInput, TechnicianRankingRow, DatabaseRankingActivity, RankedReturn } from '@/types/technicianRanking';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,7 +30,7 @@ const todayIso = () => {
 interface PanelProps {
   activities: RankingActivity[];
   technicians: RankingTechnicianInput[];
-  returnRecords: DatabaseReturnRecord[];
+  managementRecords: DatabaseRankingActivity[];
   startDate: string;
   endDate: string;
   onPeriodChange: (start: string, end: string) => void;
@@ -40,7 +41,7 @@ interface PanelProps {
   onImport: (file: File) => Promise<void>;
 }
 
-export function TechnicianRankingPanel({ activities, technicians, returnRecords, startDate, endDate, onPeriodChange, loading, error, isAdmin, importing, onImport }: PanelProps) {
+export function TechnicianRankingPanel({ activities, technicians, managementRecords, startDate, endDate, onPeriodChange, loading, error, isAdmin, importing, onImport }: PanelProps) {
   const [search, setSearch] = useState('');
   const [city, setCity] = useState('');
   const [supervisor, setSupervisor] = useState('');
@@ -48,11 +49,13 @@ export function TechnicianRankingPanel({ activities, technicians, returnRecords,
   const [reportImages, setReportImages] = useState<RankingReportImageDownload[]>([]);
   const reportMounted = useRef(true);
   const [sort, setSort] = useState('porcentagem');
-  const [details, setDetails] = useState<TechnicianRankingRow | null>(null);
+  const [detailsKey, setDetailsKey] = useState<string | null>(null);
   const [returnDetails, setReturnDetails] = useState<{ title: string; nome: string; rows: RankedReturn[] } | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const returns = useMemo(() => resolveRankingReturns(activities, returnRecords), [activities, returnRecords]);
-  const ranking = useMemo(() => calculateTechnicianRanking(activities, technicians, returns), [activities, technicians, returns]);
+  const reconciled = useMemo(() => reconcileRankingActivities(activities, managementRecords, technicians), [activities, managementRecords, technicians]);
+  const returns = useMemo(() => resolveRankingReturns(reconciled, managementRecords), [reconciled, managementRecords]);
+  const ranking = useMemo(() => calculateTechnicianRanking(reconciled, technicians, returns), [reconciled, technicians, returns]);
+  const details = ranking.find((row) => row.key === detailsKey) || null;
   const pendingReturns = returns.filter((row) => !row.ofensor && (!city || row.cidade === city));
   const cities = useMemo(() => [...new Set([...ranking.map((row) => row.cidade), ...(city ? [city] : [])])].sort(), [ranking, city]);
   const supervisors = useMemo(() => [...new Set([...ranking.map((row) => row.supervisor), ...(supervisor ? [supervisor] : [])])].sort(), [ranking, supervisor]);
@@ -131,7 +134,7 @@ export function TechnicianRankingPanel({ activities, technicians, returnRecords,
             <th className="px-3 py-3 text-right" title="Ofensor calculado pelo trigger de Retorno Credenciada. Não inclui revisita de Visita Técnica.">Retorno credenciados</th><th className="px-3 py-3">Cidade</th><th className="px-3 py-3">Supervisor</th>
           </tr></thead><tbody className="divide-y divide-slate-100">{visible.map((row, index) => <tr key={row.key} className="hover:bg-slate-50/70">
             <td className="px-3 py-3 text-slate-400">{index + 1}</td><td className="px-3 py-3 font-mono text-xs">{row.login}</td><td className="min-w-64 max-w-96 break-words px-3 py-3 text-xs font-semibold leading-5 text-slate-900">{row.nome}</td>
-            <td className="px-3 py-2 text-right"><Button variant="ghost" size="sm" className="h-8 px-2 font-bold text-sky-700" title={`Ver contratos de ${row.nome}`} aria-label={`Ver contratos de ${row.nome}`} onClick={() => setDetails(row)}>{row.contratos}</Button></td>
+            <td className="px-3 py-2 text-right"><Button variant="ghost" size="sm" className="h-8 px-2 font-bold text-sky-700" title={`Ver contratos de ${row.nome}`} aria-label={`Ver contratos de ${row.nome}`} onClick={() => setDetailsKey(row.key)}>{row.contratos}</Button></td>
             <td className="px-3 py-3 text-right font-semibold tabular-nums">{row.contratos409}</td>
             <td className={cn('px-3 py-3 tabular-nums', row.porcentagem === null ? 'text-slate-400' : row.porcentagem >= 80 ? 'bg-emerald-50 text-emerald-800' : row.porcentagem >= 50 ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-700')}>
               <p className="font-bold">{formatPercent(row.porcentagem)}</p><div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/5"><div className="h-full bg-current" style={{ width: `${row.porcentagem || 0}%` }} /></div>
@@ -143,7 +146,7 @@ export function TechnicianRankingPanel({ activities, technicians, returnRecords,
           {lastImport && <span>Última importação: {new Date(lastImport).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>}
         </div>
       </>}
-      <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetails(null)}><DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+      <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetailsKey(null)}><DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
         <DialogHeader><DialogTitle>Contratos do técnico</DialogTitle><DialogDescription>{details?.login} · {details?.nome}</DialogDescription></DialogHeader>
         <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-xs"><thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-3 py-3">Data</th><th className="px-3 py-3">Contrato</th><th className="px-3 py-3">409</th><th className="px-3 py-3">Atendeu retorno</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Códigos de baixa</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{details?.detalhes.map((row) => <tr key={`${row.data}|${row.contrato}`}><td className="whitespace-nowrap px-3 py-3">{formatDate(row.data)}</td><td className="px-3 py-3 font-mono">{row.contrato}</td><td className="px-3 py-3">{row.codigo409 ? 'Sim' : 'Não'}</td><td className="px-3 py-3">{row.retornoCredenciada ? 'Sim' : 'Não'}</td><td className="px-3 py-3">{row.statuses.join(', ')}</td><td className="max-w-72 px-3 py-3 leading-5">{row.codigos.join(' · ') || '-'}</td></tr>)}</tbody></table></div>
@@ -170,8 +173,8 @@ export function TechnicianRanking({ refreshKey, onLoadingChange }: { refreshKey:
   const [importing, setImporting] = useState(false);
   const registry = useRankingTechnicians(refreshKey);
   const source = useTechnicianRankingActivities(period.start, period.end, refreshKey);
-  const attributions = useRankingReturnAttributions(source.rows, period.start, period.end, refreshKey);
-  const loading = registry.loading || source.loading || attributions.loading;
+  const management = useRankingManagementActivities(period.start, period.end, refreshKey);
+  const loading = registry.loading || source.loading || management.loading;
   useEffect(() => { onLoadingChange(loading || importing); }, [loading, importing, onLoadingChange]);
   useEffect(() => () => onLoadingChange(false), [onLoadingChange]);
   const importFile = async (file: File) => {
@@ -183,5 +186,5 @@ export function TechnicianRanking({ refreshKey, onLoadingChange }: { refreshKey:
     } catch (error) { toast({ title: 'Falha ao importar atividades', description: error instanceof Error ? error.message : 'Não foi possível processar o arquivo.', variant: 'destructive' }); }
     finally { setImporting(false); }
   };
-  return <TechnicianRankingPanel activities={source.rows} technicians={registry.rows} returnRecords={attributions.rows} startDate={period.start} endDate={period.end} onPeriodChange={(start, end) => setPeriod({ start, end })} loading={loading} error={registry.error || source.error || attributions.error} isAdmin={isAdmin} importing={importing} onImport={importFile} />;
+  return <TechnicianRankingPanel activities={source.rows} technicians={registry.rows} managementRecords={management.rows} startDate={period.start} endDate={period.end} onPeriodChange={(start, end) => setPeriod({ start, end })} loading={loading} error={registry.error || source.error || management.error} isAdmin={isAdmin} importing={importing} onImport={importFile} />;
 }

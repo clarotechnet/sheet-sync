@@ -41,13 +41,20 @@ export interface RankedContract {
 
 export interface DatabaseReturnRecord {
   id: string;
-  contrato: string;
+  contrato: string | null;
   data_atividade: string;
   numero_os: string | null;
   cidade: string | null;
   tipo_atividade: string;
   is_revisita: boolean;
   ofensor_revisita: string | null;
+}
+
+export interface DatabaseRankingActivity extends DatabaseReturnRecord {
+  numero_os1: string | null;
+  recurso: string | null;
+  status_atividade: string | null;
+  cod_baixa_1: string | null;
 }
 
 export interface RankedReturn {

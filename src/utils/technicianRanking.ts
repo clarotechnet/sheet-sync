@@ -91,8 +91,8 @@ export const isAccreditedReturn = (type: string) => /^RETORNO (?:A )?CREDENCIAD[
 
 export function resolveRankingReturns(activities: RankingActivity[], records: DatabaseReturnRecord[]): RankedReturn[] {
   const byContractDate = new Map<string, DatabaseReturnRecord[]>();
-  records.filter((row) => isAccreditedReturn(row.tipo_atividade)).forEach((row) => {
-    const key = `${row.data_atividade}|${row.contrato.trim()}`;
+  records.filter((row) => row.contrato?.trim() && isAccreditedReturn(row.tipo_atividade)).forEach((row) => {
+    const key = `${row.data_atividade}|${text(row.contrato)}`;
     byContractDate.set(key, [...(byContractDate.get(key) || []), row]);
   });
   const groups = new Map<string, RankingActivity[]>();
@@ -151,7 +151,8 @@ export function calculateTechnicianRanking(activities: RankingActivity[], techni
     if (!activity.contrato?.trim()) return;
     let login = normalizeTechnicianLogin(activity.login_tecnico || activity.concluiu_atividade);
     if (!login) {
-      const matches = byName.get(normalizePersonName(activity.recurso)) || [];
+      const matches = (byName.get(normalizePersonName(activity.recurso)) || [])
+        .filter((row) => !activity.cidade || normalizeRankingCity(row.cidade) === normalizeRankingCity(activity.cidade));
       if (matches.length === 1) login = normalizeTechnicianLogin(matches[0].login);
     }
     const registry = byLogin.get(login);

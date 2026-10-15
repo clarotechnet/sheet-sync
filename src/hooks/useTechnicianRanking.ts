@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
-import type { RankingActivity, RankingTechnician, RankingTechnicianInput, DatabaseReturnRecord } from '@/types/technicianRanking';
-import { isAccreditedReturn, parseRankingActivities, parseRankingTechnicians } from '@/utils/technicianRanking';
+import type { RankingActivity, RankingTechnician, RankingTechnicianInput, DatabaseRankingActivity } from '@/types/technicianRanking';
+import { parseRankingActivities, parseRankingTechnicians } from '@/utils/technicianRanking';
 
 const message = (error: unknown) => error instanceof Error ? error.message
   : error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Não foi possível concluir a operação.';
@@ -99,36 +99,35 @@ export function useTechnicianRankingActivities(startDate: string, endDate: strin
   return { rows, loading, error, fetchData, importFile };
 }
 
-export function useRankingReturnAttributions(activities: RankingActivity[], startDate: string, endDate: string, refreshKey = 0) {
-  const [rows, setRows] = useState<DatabaseReturnRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+export function useRankingManagementActivities(startDate: string, endDate: string, refreshKey = 0) {
+  const [rows, setRows] = useState<DatabaseRankingActivity[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
-  const contracts = useMemo(() => [...new Set(activities.filter((row) => row.contrato && isAccreditedReturn(row.tipo_atividade)).map((row) => row.contrato!))].sort(), [activities]);
   useEffect(() => {
     const token = ++requestId.current;
+    const controller = new AbortController();
     setError(null);
-    if (!contracts.length || !startDate || !endDate || startDate > endDate) { setRows([]); setLoading(false); return; }
+    if (!startDate || !endDate || startDate > endDate) { setRows([]); setLoading(false); setError('Informe um período válido.'); return; }
     setLoading(true);
     void (async () => {
       try {
-        const result: DatabaseReturnRecord[] = [];
-        for (let index = 0; index < contracts.length; index += 100) {
-          for (let offset = 0; ; offset += 1000) {
-            const { data, error: queryError } = await externalSupabase.from('atividades')
-              .select('id, contrato, data_atividade, numero_os, cidade, tipo_atividade, is_revisita, ofensor_revisita')
-              .in('contrato', contracts.slice(index, index + 100)).ilike('tipo_atividade', 'retorno credenciada')
-              .gte('data_atividade', startDate).lte('data_atividade', endDate).order('id').range(offset, offset + 999);
-            if (queryError) throw queryError;
-            result.push(...(data || []) as DatabaseReturnRecord[]);
-            if (!data || data.length < 1000) break;
-          }
+        const result: DatabaseRankingActivity[] = [];
+        for (let offset = 0; ; offset += 1000) {
+          const { data, error: queryError } = await externalSupabase.from('atividades')
+            .select('id, contrato, data_atividade, numero_os, numero_os1, recurso, cidade, tipo_atividade, status_atividade, cod_baixa_1, is_revisita, ofensor_revisita')
+            .gte('data_atividade', startDate).lte('data_atividade', endDate)
+            .order('data_atividade').order('id').range(offset, offset + 999).abortSignal(controller.signal);
+          if (queryError) throw queryError;
+          if (controller.signal.aborted) return;
+          result.push(...(data || []) as DatabaseRankingActivity[]);
+          if (!data || data.length < 1000) break;
         }
         if (token === requestId.current) setRows(result);
       } catch (caught) { if (token === requestId.current) { setRows([]); setError(message(caught)); } }
       finally { if (token === requestId.current) setLoading(false); }
     })();
-    return () => { requestId.current += 1; };
-  }, [contracts, startDate, endDate, refreshKey]);
+    return () => { requestId.current += 1; controller.abort(); };
+  }, [startDate, endDate, refreshKey]);
   return { rows, loading, error };
 }
