@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { Check, ChevronDown, Download, FileText, Image, Loader2, RotateCcw, Search } from 'lucide-react';
 import type { ComissionamentoData } from '@/types/comissionamento';
 import {
-  buildCommissionReport, commissionReportMonths, commissionReportOptions, defaultCommissionReportMonths, formatReportMonth,
+  buildCommissionReport, commissionReportMonths, commissionReportOptions, defaultCommissionReportMonths, formatReportMonth, selectCommissionReportSales,
 } from '@/utils/comissionamentoReportData';
 import type {
-  CommissionReportFilters, CommissionReportGroup, CommissionReportRanking, CommissionReportRow,
+  CommissionReportFilters, CommissionReportGroup, CommissionReportRanking, CommissionReportRow, CommissionReportSelection,
 } from '@/utils/comissionamentoReportData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { CommissionReportSalesDialog } from './CommissionReportSalesDialog';
 
 interface FilterOption { value: string; label: string }
 
@@ -58,9 +59,11 @@ function ReportMultiSelect({ label, options, selected, onChange }: {
 }
 
 const formatNumber = (value: number) => value.toLocaleString('pt-BR');
+type SaleSelection = CommissionReportSelection & { label: string };
 
-function MonthlyMatrix({ months, rows, totals, label, bars = false }: {
+function MonthlyMatrix({ months, rows, totals, label, field, onSelect, disabled, bars = false }: {
   months: string[]; rows: CommissionReportRow[]; totals: CommissionReportRow; label: string; bars?: boolean;
+  field: CommissionReportGroup | CommissionReportRanking; onSelect: (selection: SaleSelection) => void; disabled: boolean;
 }) {
   const max = Math.max(1, ...totals.counts);
   return (
@@ -77,15 +80,23 @@ function MonthlyMatrix({ months, rows, totals, label, bars = false }: {
               <th scope="row" className="break-words px-3 py-3 text-left text-xs font-semibold leading-5 text-slate-800">{row.label}</th>
               {row.counts.map((count, index) => (
                 <td key={months[index]} className={cn('border-l border-slate-100 px-2 py-2', count ? 'text-slate-800' : 'text-slate-400')}>
-                  {bars ? (
-                    <div className="flex h-8 items-center gap-1.5">
+                  <button type="button" disabled={disabled || count === 0}
+                    aria-label={`${label}: ${row.label}, ${formatReportMonth(months[index])}, ${formatNumber(count)} ${count === 1 ? 'venda confirmada' : 'vendas confirmadas'}`}
+                    title={`Ver vendas de ${row.label} em ${formatReportMonth(months[index])}`}
+                    onClick={() => onSelect({ month: months[index], ...(rowIndex ? { field, key: row.key } : {}), label: row.label })}
+                    className="group flex h-8 w-full items-center gap-1.5 outline-offset-2 hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600 disabled:pointer-events-none">
+                  {bars ? <>
                       <div className="h-7 min-w-0 flex-1"><div className="h-full bg-[#4f7fa8]" style={{ width: `${count / max * 100}%` }} /></div>
-                      <span className="min-w-5 shrink-0 text-right text-xs">{formatNumber(count)}</span>
-                    </div>
-                  ) : <div className="text-center text-sm">{formatNumber(count)}</div>}
+                      <span className="min-w-5 shrink-0 text-right text-xs group-hover:underline">{formatNumber(count)}</span>
+                    </> : <span className="w-full text-center text-sm group-hover:underline">{formatNumber(count)}</span>}
+                  </button>
                 </td>
               ))}
-              <td className="border-l border-slate-100 px-3 py-3 text-right text-sm font-bold text-slate-800">{formatNumber(row.total)}</td>
+              <td className="border-l border-slate-100 px-2 py-2 text-right text-sm font-bold text-slate-800">
+                <button type="button" disabled={disabled || row.total === 0} aria-label={`${label}: ${row.label}, total, ${formatNumber(row.total)} vendas confirmadas`}
+                  title={`Ver total de vendas de ${row.label}`} onClick={() => onSelect({ ...(rowIndex ? { field, key: row.key } : {}), label: row.label })}
+                  className="h-8 w-full px-1 text-right outline-offset-2 hover:bg-sky-50 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600 disabled:pointer-events-none">{formatNumber(row.total)}</button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -102,12 +113,14 @@ export function ComissionamentoReports({ data, loading }: { data: Comissionament
   const [groupBy, setGroupBy] = useState<CommissionReportGroup>('alocacao');
   const [rankingBy, setRankingBy] = useState<CommissionReportRanking>('login_criador');
   const [exporting, setExporting] = useState<'pdf' | 'png' | null>(null);
+  const [selection, setSelection] = useState<SaleSelection | null>(null);
   const effectiveMonths = useMemo(() => {
     if (!filters.months.length) return months;
     const valid = filters.months.filter((month) => months.includes(month));
     return valid.length ? valid : defaultCommissionReportMonths();
   }, [filters.months, months]);
   const report = useMemo(() => buildCommissionReport(data, { ...filters, months: effectiveMonths }, groupBy, rankingBy), [data, effectiveMonths, filters, groupBy, rankingBy]);
+  const detailSales = useMemo(() => selection ? selectCommissionReportSales(data, { ...filters, months: effectiveMonths }, selection) : [], [data, effectiveMonths, filters, selection]);
   const options = useMemo(() => ({
     cities: commissionReportOptions(data, 'alocacao'), fronts: commissionReportOptions(data, 'frente'),
     products: commissionReportOptions(data, 'proposta'), logins: commissionReportOptions(data, 'login_criador'),
@@ -165,7 +178,7 @@ export function ComissionamentoReports({ data, loading }: { data: Comissionament
       </div>
 
       <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-sm text-slate-500">
-        <p><strong className="mr-2 text-2xl font-bold tabular-nums text-slate-950">{formatNumber(report.totals.total)}</strong>{report.totals.total === 1 ? 'confirmada' : 'confirmadas'}</p>
+        <p><button type="button" disabled={loading || report.totals.total === 0} onClick={() => setSelection({ label: 'Total geral' })} aria-label="Ver todas as vendas confirmadas do relatório" title="Ver vendas confirmadas" className="mr-2 text-2xl font-bold tabular-nums text-slate-950 outline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600 disabled:pointer-events-none">{formatNumber(report.totals.total)}</button>{report.totals.total === 1 ? 'confirmada' : 'confirmadas'}</p>
         <p><strong className="font-semibold text-slate-800">{report.months.length}</strong> meses</p>
         <p><strong className="font-semibold text-slate-800">{report.groups.length}</strong> {groupBy === 'alocacao' ? 'cidades / alocações' : 'frentes'}</p>
         <p><strong className="font-semibold text-slate-800">{report.ranking.length}</strong> {rankingBy === 'nome' ? 'técnicos' : 'logins'}</p>
@@ -182,7 +195,7 @@ export function ComissionamentoReports({ data, loading }: { data: Comissionament
               {(['alocacao', 'frente'] as const).map((value) => <button key={value} type="button" aria-pressed={groupBy === value} onClick={() => setGroupBy(value)} className={cn('h-8 rounded px-3 text-xs font-semibold', groupBy === value ? 'bg-slate-100 text-slate-950' : 'text-slate-500 hover:bg-slate-50')}>{value === 'alocacao' ? 'Cidade' : 'Frente'}</button>)}
             </div>
           </div>
-          <MonthlyMatrix months={report.months} rows={report.groups} totals={report.totals} label={report.groupLabel} bars />
+          <MonthlyMatrix months={report.months} rows={report.groups} totals={report.totals} label={report.groupLabel} field={groupBy} onSelect={setSelection} disabled={loading} bars />
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-4">
@@ -191,9 +204,11 @@ export function ComissionamentoReports({ data, loading }: { data: Comissionament
               {(['login_criador', 'nome'] as const).map((value) => <button key={value} type="button" aria-pressed={rankingBy === value} onClick={() => setRankingBy(value)} className={cn('h-8 rounded px-3 text-xs font-semibold', rankingBy === value ? 'bg-slate-100 text-slate-950' : 'text-slate-500 hover:bg-slate-50')}>{value === 'nome' ? 'Técnico' : 'Login'}</button>)}
             </div>
           </div>
-          <MonthlyMatrix months={report.months} rows={report.ranking} totals={report.totals} label={report.rankingLabel} />
+          <MonthlyMatrix months={report.months} rows={report.ranking} totals={report.totals} label={report.rankingLabel} field={rankingBy} onSelect={setSelection} disabled={loading} />
         </div>
       </div>
+      {selection && <CommissionReportSalesDialog sales={detailSales} label={selection.label}
+        period={selection.month ? formatReportMonth(selection.month) : report.months.map(formatReportMonth).join(', ')} onClose={() => setSelection(null)} />}
     </section>
   );
 }

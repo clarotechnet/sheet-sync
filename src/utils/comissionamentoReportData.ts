@@ -6,6 +6,12 @@ export type CommissionReportSource = Pick<ComissionamentoData,
 export type CommissionReportGroup = 'alocacao' | 'frente';
 export type CommissionReportRanking = 'login_criador' | 'nome';
 
+export interface CommissionReportSelection {
+  month?: string;
+  field?: CommissionReportGroup | CommissionReportRanking;
+  key?: string;
+}
+
 export interface CommissionReportFilters {
   months: string[];
   cities: string[];
@@ -90,6 +96,31 @@ export function commissionReportOptions(data: CommissionReportSource[], field: C
   return [...values.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
 
+function commissionReportMatcher(filters: CommissionReportFilters) {
+  const selected = (values: string[]) => new Set(values.map(normalizePersonName));
+  const selections = [
+    ['alocacao', selected(filters.cities)], ['frente', selected(filters.fronts)],
+    ['proposta', selected(filters.products)], ['login_criador', selected(filters.logins)],
+    ['nome', selected(filters.technicians)],
+  ] as const;
+  return (row: CommissionReportSource) => row.status?.trim().toUpperCase() === 'CONFIRMADA'
+    && selections.every(([field, values]) => values.size === 0 || values.has(normalizePersonName(reportFieldLabel(row[field]))));
+}
+
+export function selectCommissionReportSales<T extends CommissionReportSource>(
+  data: T[], filters: CommissionReportFilters, selection: CommissionReportSelection = {},
+): T[] {
+  const matches = commissionReportMatcher(filters);
+  const months = new Set(filters.months);
+  return data.filter((row) => {
+    if (!matches(row)) return false;
+    const month = executionMonth(row.data_exec);
+    return month !== null && months.has(month) && (!selection.month || month === selection.month)
+      && (!selection.field || (selection.key !== undefined
+        && normalizePersonName(reportFieldLabel(row[selection.field])) === normalizePersonName(selection.key)));
+  });
+}
+
 export function buildCommissionReport(
   data: CommissionReportSource[],
   filters: CommissionReportFilters,
@@ -106,12 +137,7 @@ export function buildCommissionReport(
   let excludedInvalidYear = 0;
   let futureExecutions = 0;
   const currentDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const selected = (values: string[]) => new Set(values.map(normalizePersonName));
-  const selections = [
-    ['alocacao', selected(filters.cities)], ['frente', selected(filters.fronts)],
-    ['proposta', selected(filters.products)], ['login_criador', selected(filters.logins)],
-    ['nome', selected(filters.technicians)],
-  ] as const;
+  const matches = commissionReportMatcher(filters);
 
   const count = (map: Map<string, CommissionReportRow>, value: string | null | undefined, index: number) => {
     const label = reportFieldLabel(value);
@@ -123,8 +149,7 @@ export function buildCommissionReport(
   };
 
   data.forEach((row) => {
-    if (row.status?.trim().toUpperCase() !== 'CONFIRMADA') return;
-    if (selections.some(([field, values]) => values.size > 0 && !values.has(normalizePersonName(reportFieldLabel(row[field]))))) return;
+    if (!matches(row)) return;
     // The execution date is the only time reference, including when it is missing.
     const month = executionMonth(row.data_exec);
     if (!month) {
