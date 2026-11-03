@@ -1,14 +1,20 @@
 import { useMemo, useState } from 'react';
-import { BadgeCheck, CircleDollarSign, Link2, MapPin, Pencil, Search, Trophy, UsersRound } from 'lucide-react';
-import type { GatilhoRankingItem, GatilhoTipo } from '@/types/gatilhos';
+import { BadgeCheck, ChevronDown, CircleDollarSign, Download, FileSpreadsheet, FileText, Link2, Loader2, MapPin, Pencil, Search, Trophy, UsersRound } from 'lucide-react';
+import type { GatilhoRankingItem, GatilhoTipo, GatilhoVinculo } from '@/types/gatilhos';
 import { GATILHO_CIDADES, GATILHO_TIPOS, getGatilhoTipoLabel } from '@/types/gatilhos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { buildGatilhosReport } from '@/utils/gatilhosReportData';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface GatilhosRankingProps {
   ranking: GatilhoRankingItem[];
+  vinculos: GatilhoVinculo[];
+  periodo: { inicio: string; fim: string } | null;
+  disabled: boolean;
   onEditVinculo: (item: GatilhoRankingItem) => void;
   onEditPontuacao: (item: GatilhoRankingItem) => void;
 }
@@ -16,10 +22,25 @@ interface GatilhosRankingProps {
 const formatPoints = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const formatMoney = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function GatilhosRanking({ ranking, onEditVinculo, onEditPontuacao }: GatilhosRankingProps) {
+function ReportMenu({ label, compact, disabled, busy, onExport }: {
+  label: string; compact?: boolean; disabled: boolean; busy: boolean; onExport: (format: 'pdf' | 'xlsx') => void;
+}) {
+  return <DropdownMenu><DropdownMenuTrigger asChild>
+    <Button type="button" variant="outline" size={compact ? 'icon' : 'default'} disabled={disabled} aria-label={label} title={label}>
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+      {!compact && <>{label}<ChevronDown className="h-4 w-4" /></>}
+    </Button>
+  </DropdownMenuTrigger><DropdownMenuContent align="end">
+    <DropdownMenuItem onSelect={() => onExport('pdf')}><FileText className="mr-2 h-4 w-4" />PDF</DropdownMenuItem>
+    <DropdownMenuItem onSelect={() => onExport('xlsx')}><FileSpreadsheet className="mr-2 h-4 w-4" />Excel</DropdownMenuItem>
+  </DropdownMenuContent></DropdownMenu>;
+}
+
+export function GatilhosRanking({ ranking, vinculos, periodo, disabled, onEditVinculo, onEditPontuacao }: GatilhosRankingProps) {
   const [tipo, setTipo] = useState<'TODOS' | GatilhoTipo>('TODOS');
   const [cidade, setCidade] = useState('TODAS');
   const [search, setSearch] = useState('');
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleUpperCase('pt-BR');
@@ -37,6 +58,18 @@ export function GatilhosRanking({ ranking, onEditVinculo, onEditPontuacao }: Gat
     vinculados: filtered.filter((item) => item.vinculado).length,
     atingiram: filtered.filter((item) => item.faixa_atual).length,
   }), [filtered]);
+
+  const exportReport = async (format: 'pdf' | 'xlsx', items: GatilhoRankingItem[] = filtered, scope = 'all') => {
+    if (disabled || exporting || !periodo || !items.length) return;
+    const report = buildGatilhosReport(items, vinculos, { periodo, tipo, cidade, busca: search });
+    setExporting(scope);
+    try {
+      const { downloadGatilhosReport } = await import('@/utils/gatilhosReportExport');
+      downloadGatilhosReport(report, format);
+    } catch (caught) {
+      toast({ title: 'Falha ao exportar gatilhos', description: caught instanceof Error ? caught.message : 'Não foi possível gerar o relatório.', variant: 'destructive' });
+    } finally { setExporting(null); }
+  };
 
   return (
     <div className="space-y-5">
@@ -65,15 +98,16 @@ export function GatilhosRanking({ ranking, onEditVinculo, onEditPontuacao }: Gat
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou ID" className="pl-9" />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou ID" aria-label="Buscar gatilhos por nome ou ID" className="pl-9" />
         </div>
         <Select value={cidade} onValueChange={setCidade}>
-          <SelectTrigger className="w-full sm:w-64"><MapPin className="h-4 w-4" /><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-64" aria-label="Cidade dos gatilhos"><MapPin className="h-4 w-4" /><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="TODAS">Todas as cidades</SelectItem>
             {GATILHO_CIDADES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
           </SelectContent>
         </Select>
+        <ReportMenu label="Exportar relatório" disabled={disabled || Boolean(exporting) || !periodo || !filtered.length} busy={exporting === 'all'} onExport={(format) => void exportReport(format)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -149,11 +183,12 @@ export function GatilhosRanking({ ranking, onEditVinculo, onEditPontuacao }: Gat
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-700">{item.faixa_atual ? `${item.faixa_atual.nivel}º gatilho` : '-'}</td>
                     <td className="px-4 py-3 text-right font-extrabold text-emerald-700">{formatMoney(item.premio)}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-2">
+                      <ReportMenu compact label={`Exportar relatório do ID ${item.id_externo}`} disabled={disabled || Boolean(exporting) || !periodo} busy={exporting === item.id_externo} onExport={(format) => void exportReport(format, [item], item.id_externo)} />
                       <Button type="button" variant="outline" size="sm" onClick={() => onEditVinculo(item)}>
                         <Link2 /> {item.vinculado ? 'Editar' : 'Vincular'}
                       </Button>
-                    </td>
+                    </div></td>
                   </tr>
                 );
               })}

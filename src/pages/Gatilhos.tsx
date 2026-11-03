@@ -90,7 +90,8 @@ export default function Gatilhos() {
             <LoadingSpinner message="Carregando gatilhos..." />
           ) : (
             <div>
-              {activeTab === 'ranking' && <GatilhosRanking ranking={hook.ranking} onEditVinculo={setSelectedItem} onEditPontuacao={setScoreItem} />}
+              {activeTab === 'ranking' && <GatilhosRanking ranking={hook.ranking} vinculos={hook.vinculos} periodo={period || null}
+                disabled={hook.isLoading || hook.isImporting || Boolean(hook.error)} onEditVinculo={setSelectedItem} onEditPontuacao={setScoreItem} />}
               {activeTab === 'vinculos' && <GatilhosVinculos ranking={hook.ranking} onEdit={setSelectedItem} />}
               {activeTab === 'faixas' && <GatilhosFaixas faixas={hook.faixas} onSave={hook.saveFaixas} />}
             </div>
