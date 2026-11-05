@@ -1,25 +1,31 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import type { ColaboradorCadastrado, TecnicoFrente } from '@/types/comissionamento';
-import { calcularGatilhoPontuacao } from '@/utils/gatilhosPontuacao';
+import { buildLiveGatilhosRanking, readClosedGatilhos } from '@/utils/gatilhosHistory';
 import type {
   GatilhoFaixa,
   GatilhoImportRow,
-  GatilhoRankingItem,
+  GatilhoFechamento,
+  GatilhoResultadoFechado,
   GatilhoResultado,
   GatilhosDataState,
   GatilhoTipo,
   GatilhoVinculo,
 } from '@/types/gatilhos';
 
-const EMPTY_STATE: GatilhosDataState = {
+const EMPTY_STATE: GatilhosDataState & { fechamentos: GatilhoFechamento[]; closureAvailable: boolean | null } = {
   resultados: [],
   vinculos: [],
   faixas: [],
   colaboradores: [],
   tecnicosFrente: [],
+  fechamentos: [],
+  closureAvailable: null,
 };
+
+const errorMessage = (caught: unknown, fallback: string) =>
+  typeof caught === 'object' && caught !== null && 'message' in caught ? String(caught.message) : fallback;
 
 const normalizeLabel = (value: unknown) =>
   String(value ?? '')
@@ -119,17 +125,44 @@ const parseGatilhosWorkbook = async (file: File): Promise<GatilhoImportRow[]> =>
 };
 
 export function useGatilhos() {
-  const [state, setState] = useState<GatilhosDataState>(EMPTY_STATE);
+  const [state, setState] = useState(EMPTY_STATE);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+  const hasKnownClosures = useRef(false);
+  const [snapshot, setSnapshot] = useState<{
+    key: string; view: ReturnType<typeof readClosedGatilhos> | null; error: string | null;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
+    const currentRequest = ++request.current;
     setIsLoading(true);
     setError(null);
 
     try {
+      const fechamentos: GatilhoFechamento[] = [];
+      let closureAvailable = true;
+      for (let offset = 0; ; offset += 1000) {
+        const result = await externalSupabase.from('gatilhos_fechamentos').select('*')
+          .order('periodo_inicio', { ascending: false }).range(offset, offset + 999);
+        if (result.error) {
+          if (['PGRST205', '42P01'].includes(result.error.code)) {
+            if (hasKnownClosures.current) {
+              throw new Error('Não foi possível verificar os fechamentos. Os dados foram bloqueados; atualize para tentar novamente.');
+            }
+            closureAvailable = false;
+            break;
+          }
+          throw result.error;
+        }
+        const rows = (result.data || []) as GatilhoFechamento[];
+        fechamentos.push(...rows);
+        if (rows.length < 1000) break;
+      }
+      if (fechamentos.length) hasKnownClosures.current = true;
       const resultados: GatilhoResultado[] = [];
       let page = 0;
       const pageSize = 1000;
@@ -169,7 +202,10 @@ export function useGatilhos() {
       ].find(Boolean);
       if (firstError) throw firstError;
 
+      if (currentRequest !== request.current) return;
       setState({
+        fechamentos,
+        closureAvailable,
         resultados,
         vinculos: (vinculosResult.data || []) as unknown as GatilhoVinculo[],
         faixas: (faixasResult.data || []) as GatilhoFaixa[],
@@ -177,14 +213,14 @@ export function useGatilhos() {
         tecnicosFrente: (tecnicosResult.data || []) as TecnicoFrente[],
       });
     } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível carregar os gatilhos.');
+      if (currentRequest === request.current) setError(errorMessage(caught, 'Não foi possível carregar os gatilhos.'));
     } finally {
-      setIsLoading(false);
+      if (currentRequest === request.current) setIsLoading(false);
     }
   }, []);
 
   const periods = useMemo(() => {
-    const byStart = new Map<string, { inicio: string; fim: string; total: number }>();
+    const byStart = new Map<string, { inicio: string; fim: string; total: number; fechado?: boolean }>();
     state.resultados.forEach((row) => {
       const current = byStart.get(row.periodo_inicio);
       byStart.set(row.periodo_inicio, {
@@ -193,54 +229,75 @@ export function useGatilhos() {
         total: (current?.total || 0) + 1,
       });
     });
+    state.fechamentos.forEach((row) => byStart.set(row.periodo_inicio, {
+      inicio: row.periodo_inicio, fim: row.periodo_fim, total: row.total_ids, fechado: true,
+    }));
     return Array.from(byStart.values()).sort((a, b) => b.inicio.localeCompare(a.inicio));
-  }, [state.resultados]);
+  }, [state.resultados, state.fechamentos]);
   const activePeriod = periods.some((period) => period.inicio === selectedPeriod)
     ? selectedPeriod
     : periods[0]?.inicio || null;
 
-  const ranking = useMemo<GatilhoRankingItem[]>(() => {
-    const vinculosPorId = new Map<string, GatilhoVinculo[]>();
-    state.vinculos.forEach((vinculo) => {
-      const current = vinculosPorId.get(vinculo.id_externo) || [];
-      current.push(vinculo);
-      vinculosPorId.set(vinculo.id_externo, current);
-    });
+  const fechamento = state.fechamentos.find((row) => row.periodo_inicio === activePeriod) || null;
+  const snapshotKey = fechamento ? `${fechamento.periodo_inicio}:${fechamento.fechado_em}` : null;
+  useEffect(() => {
+    if (!fechamento || !snapshotKey) { setSnapshot(null); return; }
+    const controller = new AbortController();
+    const key = snapshotKey;
+    setSnapshot({ key, view: null, error: null });
+    void (async () => {
+      try {
+        const rows: GatilhoResultadoFechado[] = [];
+        for (let offset = 0; ; offset += 1000) {
+          const result = await externalSupabase.from('gatilhos_resultados_fechados').select('*')
+            .eq('periodo_inicio', fechamento.periodo_inicio).order('id_externo')
+            .range(offset, offset + 999).abortSignal(controller.signal);
+          if (result.error) throw result.error;
+          const page = (result.data || []) as unknown as GatilhoResultadoFechado[];
+          rows.push(...page);
+          if (page.length < 1000) break;
+        }
+        const view = readClosedGatilhos(fechamento, rows);
+        if (!controller.signal.aborted) setSnapshot({ key, view, error: null });
+      } catch (caught) {
+        if (!controller.signal.aborted) setSnapshot({ key, view: null, error: errorMessage(caught, 'Não foi possível carregar o período fechado.') });
+      }
+    })();
+    return () => controller.abort();
+  }, [fechamento, snapshotKey]);
 
-    return state.resultados.filter((resultado) => resultado.periodo_inicio === activePeriod).map((resultado) => {
-      const vinculos = (vinculosPorId.get(resultado.id_externo) || [])
-        .sort((a, b) => (a.papel === 'INSTALADOR' ? 0 : 1) - (b.papel === 'INSTALADOR' ? 0 : 1));
-      const tipo = vinculos[0]?.tipo || null;
-      const cidade = vinculos[0]?.cidade || null;
-      const faixas = state.faixas.filter((faixa) => faixa.tipo === tipo);
-      const { pontuacao, faixaAtual, proximaFaixa, premio } = calcularGatilhoPontuacao(resultado, faixas);
-      const nomes = vinculos.map((vinculo) => vinculo.colaborador.nome);
+  const liveRanking = useMemo(() => buildLiveGatilhosRanking(state, activePeriod), [state, activePeriod]);
+  const closedView = snapshot?.key === snapshotKey ? snapshot : null;
+  const isHistoryLoading = Boolean(fechamento && !closedView?.view && !closedView?.error);
+  const ranking = fechamento ? closedView?.view?.ranking || [] : liveRanking;
+  const viewVinculos = fechamento ? closedView?.view?.vinculos || [] : state.vinculos;
+  const viewFaixas = fechamento ? closedView?.view?.faixas || [] : state.faixas;
 
-      return {
-        ...resultado,
-        valor: Number(resultado.valor),
-        valor_ajustado: resultado.valor_ajustado == null ? null : Number(resultado.valor_ajustado),
-        pontuacao,
-        valor_instalador: Number(resultado.valor_instalador),
-        valor_auxiliar: Number(resultado.valor_auxiliar),
-        valor_deslocamento: Number(resultado.valor_deslocamento),
-        nomes,
-        nome_exibicao: nomes.length > 0 ? nomes.join(' / ') : `ID ${resultado.id_externo} não vinculado`,
-        cidade,
-        tipo,
-        vinculado: nomes.length > 0 && Boolean(tipo) && Boolean(cidade),
-        faixa_atual: faixaAtual,
-        proxima_faixa: proximaFaixa,
-        premio,
-      };
-    }).sort((a, b) => b.pontuacao - a.pontuacao);
-  }, [activePeriod, state.faixas, state.resultados, state.vinculos]);
+  const assertOpen = useCallback((periodo = activePeriod) => {
+    if (isLoading || error || isClosing) throw new Error('Atualize os dados antes de editar.');
+    if (state.fechamentos.some((row) => row.periodo_inicio === periodo)) {
+      throw new Error('Esse período está fechado e não permite alterações.');
+    }
+  }, [activePeriod, state.fechamentos, isLoading, error, isClosing]);
+
+  const closePeriod = useCallback(async (periodo: string) => {
+    if (state.closureAvailable !== true) throw new Error('O fechamento ainda não está disponível no banco.');
+    assertOpen(periodo);
+    setIsClosing(true);
+    try {
+      const result = await externalSupabase.rpc('fechar_periodo_gatilhos', { p_periodo_inicio: periodo });
+      if (result.error) throw result.error;
+      hasKnownClosures.current = true;
+      await fetchData();
+    } finally { setIsClosing(false); }
+  }, [assertOpen, fetchData, state.closureAvailable]);
 
   const importWorkbook = useCallback(async (
     file: File,
     periodoInicio: string,
     periodoFim: string,
   ) => {
+    assertOpen(periodoInicio);
     setIsImporting(true);
     setError(null);
     try {
@@ -263,7 +320,7 @@ export function useGatilhos() {
     } finally {
       setIsImporting(false);
     }
-  }, [fetchData]);
+  }, [assertOpen, fetchData]);
 
   const savePontuacao = useCallback(async (
     idExterno: string,
@@ -271,6 +328,7 @@ export function useGatilhos() {
     valorAjustado: number | null,
     motivo: string,
   ) => {
+    assertOpen(periodoInicio);
     const { error: saveError } = await externalSupabase.rpc('ajustar_gatilho_pontuacao', {
       p_id_externo: idExterno,
       p_periodo_inicio: periodoInicio,
@@ -279,7 +337,7 @@ export function useGatilhos() {
     });
     if (saveError) throw saveError;
     await fetchData();
-  }, [fetchData]);
+  }, [assertOpen, fetchData]);
 
   const saveVinculo = useCallback(async (
     idExterno: string,
@@ -287,6 +345,7 @@ export function useGatilhos() {
     tipo: GatilhoTipo,
     colaboradorIds: string[],
   ) => {
+    assertOpen();
     const { error: saveError } = await externalSupabase.rpc('salvar_gatilho_vinculo', {
       p_id_externo: idExterno,
       p_cidade: cidade,
@@ -295,35 +354,43 @@ export function useGatilhos() {
     });
     if (saveError) throw saveError;
     await fetchData();
-  }, [fetchData]);
+  }, [assertOpen, fetchData]);
 
   const deleteVinculo = useCallback(async (idExterno: string) => {
+    assertOpen();
     const { error: deleteError } = await externalSupabase
       .from('gatilhos_vinculos')
       .delete()
       .eq('id_externo', idExterno);
     if (deleteError) throw deleteError;
     await fetchData();
-  }, [fetchData]);
+  }, [assertOpen, fetchData]);
 
   const saveFaixas = useCallback(async (faixas: GatilhoFaixa[]) => {
+    assertOpen();
     const payload = faixas.map(({ id: _id, ...faixa }) => faixa);
     const { error: saveError } = await externalSupabase
       .from('gatilhos_faixas')
       .upsert(payload, { onConflict: 'tipo,nivel' });
     if (saveError) throw saveError;
     await fetchData();
-  }, [fetchData]);
+  }, [assertOpen, fetchData]);
 
   return {
     ...state,
     ranking,
+    viewVinculos,
+    viewFaixas,
+    fechamento,
+    isHistoryLoading,
+    isClosing,
+    closePeriod,
     periods,
     activePeriod,
     setSelectedPeriod,
     isLoading,
     isImporting,
-    error,
+    error: error || closedView?.error || null,
     fetchData,
     importWorkbook,
     savePontuacao,

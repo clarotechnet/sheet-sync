@@ -15,6 +15,7 @@ interface GatilhosRankingProps {
   vinculos: GatilhoVinculo[];
   periodo: { inicio: string; fim: string } | null;
   disabled: boolean;
+  readOnly?: boolean;
   onEditVinculo: (item: GatilhoRankingItem) => void;
   onEditPontuacao: (item: GatilhoRankingItem) => void;
 }
@@ -36,7 +37,7 @@ function ReportMenu({ label, compact, disabled, busy, onExport }: {
   </DropdownMenuContent></DropdownMenu>;
 }
 
-export function GatilhosRanking({ ranking, vinculos, periodo, disabled, onEditVinculo, onEditPontuacao }: GatilhosRankingProps) {
+export function GatilhosRanking({ ranking, vinculos, periodo, disabled, readOnly = false, onEditVinculo, onEditPontuacao }: GatilhosRankingProps) {
   const [tipo, setTipo] = useState<'TODOS' | GatilhoTipo>('TODOS');
   const [cidade, setCidade] = useState('TODAS');
   const [search, setSearch] = useState('');
@@ -162,9 +163,9 @@ export function GatilhosRanking({ ranking, vinculos, periodo, disabled, onEditVi
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <span className="text-base font-extrabold text-slate-950">{formatPoints(item.pontuacao)}</span>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Editar pontuação" aria-label={`Editar pontuação de ${item.nome_exibicao}`} onClick={() => onEditPontuacao(item)}>
+                        {!readOnly && <Button type="button" variant="ghost" size="icon" disabled={disabled} className="h-8 w-8" title="Editar pontuação" aria-label={`Editar pontuação de ${item.nome_exibicao}`} onClick={() => onEditPontuacao(item)}>
                           <Pencil className="h-4 w-4" />
-                        </Button>
+                        </Button>}
                       </div>
                       {item.valor_ajustado !== null && <p className="text-xs text-amber-700">Ajustado · importado {formatPoints(item.valor)}</p>}
                     </td>
@@ -185,9 +186,9 @@ export function GatilhosRanking({ ranking, vinculos, periodo, disabled, onEditVi
                     <td className="px-4 py-3 text-right font-extrabold text-emerald-700">{formatMoney(item.premio)}</td>
                     <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-2">
                       <ReportMenu compact label={`Exportar relatório do ID ${item.id_externo}`} disabled={disabled || Boolean(exporting) || !periodo} busy={exporting === item.id_externo} onExport={(format) => void exportReport(format, [item], item.id_externo)} />
-                      <Button type="button" variant="outline" size="sm" onClick={() => onEditVinculo(item)}>
+                      {!readOnly && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onEditVinculo(item)}>
                         <Link2 /> {item.vinculado ? 'Editar' : 'Vincular'}
-                      </Button>
+                      </Button>}
                     </div></td>
                   </tr>
                 );

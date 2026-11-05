@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 
 interface GatilhosVinculosProps {
   ranking: GatilhoRankingItem[];
+  readOnly?: boolean;
   onEdit: (item: GatilhoRankingItem) => void;
 }
 
-export function GatilhosVinculos({ ranking, onEdit }: GatilhosVinculosProps) {
+export function GatilhosVinculos({ ranking, readOnly = false, onEdit }: GatilhosVinculosProps) {
   const [search, setSearch] = useState('');
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleUpperCase('pt-BR');
@@ -30,7 +31,7 @@ export function GatilhosVinculos({ ranking, onEdit }: GatilhosVinculosProps) {
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-extrabold text-slate-950">IDs e equipes</h2>
-          <p className="mt-1 text-sm text-slate-500">Associe cada ID do relatório a uma cidade, um tipo e até dois colaboradores.</p>
+          <p className="mt-1 text-sm text-slate-500">{readOnly ? 'Equipes do período selecionado' : 'Cadastro de equipes e colaboradores'}</p>
         </div>
         <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
           <UsersRound className="h-4 w-4 text-sky-600" />
@@ -69,11 +70,11 @@ export function GatilhosVinculos({ ranking, onEdit }: GatilhosVinculosProps) {
                       {item.vinculado ? 'Vinculado' : 'Pendente'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-right font-extrabold text-slate-950">{item.valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-slate-950">{item.pontuacao.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</td>
                   <td className="px-4 py-3 text-right">
-                    <Button type="button" variant="outline" size="sm" onClick={() => onEdit(item)}>
+                    {!readOnly && <Button type="button" variant="outline" size="sm" onClick={() => onEdit(item)}>
                       <Link2 /> {item.vinculado ? 'Editar' : 'Vincular'}
-                    </Button>
+                    </Button>}
                   </td>
                 </tr>
               ))}

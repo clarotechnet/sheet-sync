@@ -8,10 +8,11 @@ import { toast } from '@/hooks/use-toast';
 
 interface GatilhosFaixasProps {
   faixas: GatilhoFaixa[];
+  readOnly?: boolean;
   onSave: (faixas: GatilhoFaixa[]) => Promise<void>;
 }
 
-export function GatilhosFaixas({ faixas, onSave }: GatilhosFaixasProps) {
+export function GatilhosFaixas({ faixas, readOnly = false, onSave }: GatilhosFaixasProps) {
   const [draft, setDraft] = useState<GatilhoFaixa[]>(faixas);
   const [savingType, setSavingType] = useState<GatilhoTipo | null>(null);
 
@@ -25,11 +26,13 @@ export function GatilhosFaixas({ faixas, onSave }: GatilhosFaixasProps) {
   ), [draft]);
 
   const update = (id: string, field: 'pontos' | 'premio', rawValue: string) => {
+    if (readOnly) return;
     const value = Math.max(0, Number(rawValue) || 0);
     setDraft((current) => current.map((faixa) => faixa.id === id ? { ...faixa, [field]: value } : faixa));
   };
 
   const saveType = async (tipo: GatilhoTipo) => {
+    if (readOnly) return;
     const items = grouped.get(tipo) || [];
     if (items.some((item) => item.pontos <= 0)) {
       toast({ title: 'Os pontos precisam ser maiores que zero', variant: 'destructive' });
@@ -61,7 +64,7 @@ export function GatilhosFaixas({ faixas, onSave }: GatilhosFaixasProps) {
     <div className="space-y-5">
       <div className="border-b border-slate-200 pb-5">
         <h2 className="text-xl font-extrabold text-slate-950">Faixas de premiação</h2>
-        <p className="mt-1 text-sm text-slate-500">Os valores abaixo alimentam automaticamente o gatilho atingido e a premiação do ranking.</p>
+        <p className="mt-1 text-sm text-slate-500">{readOnly ? 'Faixas registradas no fechamento' : 'Faixas vigentes para os períodos abertos'}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -74,10 +77,10 @@ export function GatilhosFaixas({ faixas, onSave }: GatilhosFaixasProps) {
                   <h3 className="font-extrabold text-slate-950">{tipo.label}</h3>
                   <p className="mt-0.5 text-xs text-slate-500">Quatro níveis de produção</p>
                 </div>
-                <Button type="button" size="sm" onClick={() => saveType(tipo.value)} disabled={Boolean(savingType)}>
+                {!readOnly && <Button type="button" size="sm" onClick={() => saveType(tipo.value)} disabled={Boolean(savingType)}>
                   {savingType === tipo.value ? <Loader2 className="animate-spin" /> : <Save />}
                   Salvar
-                </Button>
+                </Button>}
               </header>
               <div className="divide-y divide-slate-100">
                 {items.map((faixa) => (
@@ -85,11 +88,11 @@ export function GatilhosFaixas({ faixas, onSave }: GatilhosFaixasProps) {
                     <div className="pb-2 text-sm font-extrabold text-[#e31325]">{faixa.nivel}º gatilho</div>
                     <div className="space-y-1.5">
                       <label htmlFor={`pontos-${faixa.id}`} className="flex items-center gap-1 text-xs font-bold text-slate-500"><Target className="h-3.5 w-3.5" /> Pontos</label>
-                      <Input id={`pontos-${faixa.id}`} type="number" min="1" step="1" value={faixa.pontos} onChange={(event) => update(faixa.id, 'pontos', event.target.value)} />
+                      <Input id={`pontos-${faixa.id}`} readOnly={readOnly} type="number" min="1" step="1" value={faixa.pontos} onChange={(event) => update(faixa.id, 'pontos', event.target.value)} />
                     </div>
                     <div className="space-y-1.5">
                       <label htmlFor={`premio-${faixa.id}`} className="flex items-center gap-1 text-xs font-bold text-slate-500"><CircleDollarSign className="h-3.5 w-3.5" /> Prêmio (R$)</label>
-                      <Input id={`premio-${faixa.id}`} type="number" min="0" step="0.01" value={faixa.premio} onChange={(event) => update(faixa.id, 'premio', event.target.value)} />
+                      <Input id={`premio-${faixa.id}`} readOnly={readOnly} type="number" min="0" step="0.01" value={faixa.premio} onChange={(event) => update(faixa.id, 'premio', event.target.value)} />
                     </div>
                   </div>
                 ))}

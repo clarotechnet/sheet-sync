@@ -49,6 +49,22 @@ export interface GatilhoRankingItem extends GatilhoResultado {
   premio: number;
 }
 
+export interface GatilhoFechamento {
+  periodo_inicio: string;
+  periodo_fim: string;
+  fechado_em: string;
+  fechado_por: string;
+  total_ids: number;
+  faixas: GatilhoFaixa[];
+}
+
+export interface GatilhoResultadoFechado {
+  periodo_inicio: string;
+  id_externo: string;
+  resultado: GatilhoRankingItem;
+  vinculos: GatilhoVinculo[];
+}
+
 export interface GatilhoImportRow {
   id_externo: string;
   valor: number;
