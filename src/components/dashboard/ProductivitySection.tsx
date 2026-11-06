@@ -1,31 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Trophy, Frown, Users, ListChecks, PieChart } from 'lucide-react';
+import { ChartNoAxesCombined, Users, ListChecks, PieChart, X } from 'lucide-react';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
 import { useDashboard } from '@/contexts/DashboardContext';
 import { calculateTechnicianProductivity, getActivityStatus } from '@/utils/activityHelpers';
-import { DraggableBarChart } from './DraggableBarChart';
-
-interface ProductivityItemProps {
-  name: string;
-  count: string;
-  percentage: number;
-}
-
-const ProductivityItem: React.FC<ProductivityItemProps> = ({ name, count, percentage }) => {
-  const colorClass = percentage >= 80 ? 'text-success' : percentage < 40 ? 'text-danger' : 'text-warning';
-
-  return (
-    <li className="productivity-item">
-      <span className="name">
-        {name}
-        <span className="count">{count}</span>
-      </span>
-      <span className={`percentage ${colorClass}`}>
-        {percentage.toFixed(1)}%
-      </span>
-    </li>
-  );
-};
+import { TechnicianProductivityList } from './TechnicianProductivityList';
 
 // Lista de tipos de atividade a ignorar no gráfico de pizza
 const IGNORE_LIST = ['na base', 'refeicao', 'refeição', 'intervalo', 'não informado'];
@@ -42,7 +20,11 @@ const PRIMARY_SERVICES = [
 const PIE_COLORS = ['#4facfe', '#764ba2', '#f093fb', '#f5576c', '#00f2fe', '#43e97b', '#38ef7d', '#ff6b6b', '#ffc107', '#17a2b8'];
 
 // Renderização customizada para fatia ativa
-const renderActiveShape = (props: any) => {
+const renderActiveShape = (props: {
+  cx: number; cy: number; innerRadius: number; outerRadius: number;
+  startAngle: number; endAngle: number; fill: string;
+  payload: { name: string }; value: number; percent: number;
+}) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value, percent } = props;
 
   return (
@@ -70,7 +52,7 @@ const renderActiveShape = (props: any) => {
 };
 
 export const ProductivitySection: React.FC = () => {
-  const { filteredData, setFilters, filters } = useDashboard();
+  const { filteredData } = useDashboard();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
 
@@ -89,9 +71,6 @@ export const ProductivitySection: React.FC = () => {
     calculateTechnicianProductivity(dataForProductivity),
     [dataForProductivity]
   );
-
-  const topTechnicians = techProductivity.slice(0, 5);
-  const bottomTechnicians = techProductivity.slice(-5).reverse();
 
   const uniqueTechnicians = useMemo(() =>
     new Set(dataForProductivity.map(item => item.Recurso).filter(Boolean)).size,
@@ -131,6 +110,11 @@ export const ProductivitySection: React.FC = () => {
       .sort((a, b) => b.value - a.value);
   }, [filteredData]);
 
+  const servicesByProductivity = useMemo(() => pieData
+    .map((service, pieIndex) => ({ ...service, pieIndex }))
+    .sort((a, b) => b.productivity - a.productivity || b.value - a.value || a.name.localeCompare(b.name, 'pt-BR')),
+  [pieData]);
+
   // Calcula produtividade geral
   const overallStats = useMemo(() => {
     let totalAll = 0;
@@ -149,7 +133,7 @@ export const ProductivitySection: React.FC = () => {
   }, [pieData]);
 
   // Handler para clique na fatia do pizza
-  const handlePieClick = (data: any, index: number) => {
+  const handlePieClick = (data: { name: string }, index: number) => {
     if (selectedActivity === data.name) {
       // Desseleciona
       setSelectedActivity(null);
@@ -287,31 +271,6 @@ export const ProductivitySection: React.FC = () => {
     return primary ? primary.label : activity;
   };
 
-  // Dados do gráfico de barras para Top 5 - estilo pódio
-  const topChartData = useMemo(() => {
-   return topTechnicians.map((tech, index) => ({
-      name: tech.name.split(' ')[0],
-      fullName: tech.name,
-      value: tech.productiveCount,
-      total: tech.count,
-      productivity: tech.productivity,
-      color: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#667eea'
-    }));
-  }, [topTechnicians]);
-
-  // Dados do gráfico de barras para Bottom 5
-  const bottomChartData = useMemo(() =>
-    bottomTechnicians.map(tech => ({
-      name: tech.name.split(' ')[0],
-      fullName: tech.name,
-      value: tech.productiveCount,
-      total: tech.count,
-      productivity: tech.productivity,
-      color: tech.productivity >= 80 ? '#10b981' : '#ef4444'
-    })),
-    [bottomTechnicians]
-  );
-
   const tooltipStyle = {
     backgroundColor: 'hsl(var(--card))',
     border: '1px solid hsl(var(--border))',
@@ -384,7 +343,7 @@ export const ProductivitySection: React.FC = () => {
       </div>
 
       {/* Productivity Grid with Charts */}
-      <div className="productivity-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="productivity-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         {/* Gráfico de Pizza - Por Tipo de Serviço (Interativo) */}
         <div className="productivity-card">
           <h4 className="mb-2 flex items-center gap-2">
@@ -422,7 +381,7 @@ export const ProductivitySection: React.FC = () => {
 
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  formatter={(value: number, name: string, props: any) => [
+                  formatter={(value: number, name: string, props) => [
                     `${value} OS (${props.payload.productivity.toFixed(1)}% prod.)`,
                     name
                   ]}
@@ -456,52 +415,60 @@ export const ProductivitySection: React.FC = () => {
           />
         </div>
 
-        {/* Técnicos Ativos */}
-        <div className="productivity-card">
-          <h4 className="mb-2 flex items-center gap-2">
-            <Users className="w-5 h-5 text-accent" />
-            Técnicos Ativos
-            {selectedActivity && (
-              <span className="text-xs bg-accent/20 px-2 py-0.5 rounded-full">
-                {selectedActivity.substring(0, 10)}...
-              </span>
-            )}
-          </h4>
-          <div className="text-4xl font-extrabold mt-2">
-            {uniqueTechnicians}
+        <div className="min-w-0 space-y-4">
+          <div className="productivity-card">
+            <h4 className="mb-2 flex items-center gap-2">
+              <Users className="w-5 h-5 text-accent" />
+              Técnicos Ativos
+              {selectedActivity && (
+                <span className="text-xs bg-accent/20 px-2 py-0.5 rounded-full">
+                  {selectedActivity.substring(0, 10)}...
+                </span>
+              )}
+            </h4>
+            <div className="text-4xl font-extrabold mt-2">
+              {uniqueTechnicians}
+            </div>
+            <div className="text-muted-foreground mt-2 text-sm">
+              {selectedActivity
+                ? `Técnicos em "${selectedActivity.substring(0, 15)}..."`
+                : 'Técnicos únicos no filtro atual'
+              }
+            </div>
           </div>
-          <div className="text-muted-foreground mt-2 text-sm">
-            {selectedActivity
-              ? `Técnicos em "${selectedActivity.substring(0, 15)}..."`
-              : 'Técnicos únicos no filtro atual'
-            }
-          </div>
-        </div>
 
-        {/* Top 5 com lista e gráfico */}
-        <div className="productivity-card">
-          <h4 className="mb-2 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-warning" />
-            Top 5 Técnicos Produtivos (Pódio)
-          </h4>
-          <p className="text-xs text-muted-foreground mb-3">
-            Arraste para reordenar
-          </p>
-          <DraggableBarChart data={topChartData} />
-        </div>
-
-        {/* Bottom 5 com barras arrastáveis */}
-        <div className="productivity-card">
-          <h4 className="mb-2 flex items-center gap-2">
-            <Frown className="w-5 h-5 text-danger" />
-            Bottom 5 Técnicos Produtivos
-          </h4>
-               <p className="text-xs text-muted-foreground mb-3">
-            Arraste para reordenar
-          </p>
-          <DraggableBarChart data={bottomChartData} />
+          <section className="border-y border-slate-200 bg-white" aria-labelledby="service-productivity-title">
+            <div className="flex min-h-12 items-center justify-between gap-3 border-b border-slate-100 px-4 py-2">
+              <h4 id="service-productivity-title" className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                <ChartNoAxesCombined className="h-4 w-4 shrink-0 text-accent" />Produtividade por serviço
+              </h4>
+              <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                <span>{servicesByProductivity.length} {servicesByProductivity.length === 1 ? 'serviço' : 'serviços'}</span>
+                {selectedActivity && <button type="button" className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Limpar seleção de serviço" title="Limpar seleção de serviço" onClick={() => { setSelectedActivity(null); setActiveIndex(null); }}><X className="h-4 w-4" /></button>}
+              </div>
+            </div>
+            <ul aria-label="Produtividade por serviço" className="max-h-[184px] divide-y divide-slate-100 overflow-y-auto">
+              {servicesByProductivity.map((service) => <li key={service.name}>
+                <button type="button" className={`block w-full px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedActivity === service.name ? 'bg-sky-50' : ''}`}
+                  aria-pressed={selectedActivity === service.name}
+                  aria-label={`Filtrar serviço ${service.name}; ${service.productivity.toFixed(1)}% de produtividade; ${service.productive} produtivas de ${service.value} OS`}
+                  title={`Filtrar serviço ${service.name}`}
+                  onClick={() => handlePieClick(service, service.pieIndex)}>
+                  <span className="flex items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">{getActivityLabel(service.name)}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-sky-700">{service.productivity.toFixed(1)}%</span>
+                  </span>
+                  <span className="mt-1 block text-xs tabular-nums text-muted-foreground">Produtivas: {service.productive.toLocaleString('pt-BR')} de {service.value.toLocaleString('pt-BR')} OS</span>
+                  <span aria-hidden="true" className="mt-1.5 block h-1.5 overflow-hidden rounded bg-slate-100"><span className="block h-full bg-sky-600" style={{ width: `${service.productivity}%` }} /></span>
+                </button>
+              </li>)}
+              {!servicesByProductivity.length && <li className="px-4 py-6 text-sm text-muted-foreground">Nenhum serviço nos filtros atuais.</li>}
+            </ul>
+          </section>
         </div>
       </div>
+
+      <TechnicianProductivityList technicians={techProductivity} />
     </div>
   );
 };

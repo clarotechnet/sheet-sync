@@ -127,13 +127,13 @@ export function TechnicianRankingPanel({ activities, technicians, managementReco
       {loading ? <div className="flex min-h-52 items-center justify-center gap-2 text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Carregando ranking...</div> : !error && <>
         <div className="overflow-x-auto border-t-2 border-[#e31325] bg-white">
           <table className="w-full min-w-[1150px] text-sm"><thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>
-            <th className="w-10 px-3 py-3">#</th><th className="px-3 py-3">Login</th><th className="px-3 py-3">Nome</th>
+            <th className="px-3 py-3">Login</th><th className="px-3 py-3">Nome</th>
             <th className="px-3 py-3 text-right" title="Contrato contado uma vez por técnico e data">Contratos</th>
             <th className="px-3 py-3 text-right" title="Código 409 em qualquer tarefa do contrato">Contratos 409</th>
             <th className="w-40 px-3 py-3" title="Contratos 409 divididos por contratos, multiplicado por 100">% 409</th>
             <th className="px-3 py-3 text-right" title="Ofensor calculado pelo trigger de Retorno Credenciada. Não inclui revisita de Visita Técnica.">Retorno credenciados</th><th className="px-3 py-3">Cidade</th><th className="px-3 py-3">Supervisor</th>
-          </tr></thead><tbody className="divide-y divide-slate-100">{visible.map((row, index) => <tr key={row.key} className="hover:bg-slate-50/70">
-            <td className="px-3 py-3 text-slate-400">{index + 1}</td><td className="px-3 py-3 font-mono text-xs">{row.login}</td><td className="min-w-64 max-w-96 break-words px-3 py-3 text-xs font-semibold leading-5 text-slate-900">{row.nome}</td>
+          </tr></thead><tbody className="divide-y divide-slate-100">{visible.map((row) => <tr key={row.key} className="hover:bg-slate-50/70">
+            <td className="px-3 py-3 font-mono text-xs">{row.login}</td><td className="min-w-64 max-w-96 break-words px-3 py-3 text-xs font-semibold leading-5 text-slate-900">{row.nome}</td>
             <td className="px-3 py-2 text-right"><Button variant="ghost" size="sm" className="h-8 px-2 font-bold text-sky-700" title={`Ver contratos de ${row.nome}`} aria-label={`Ver contratos de ${row.nome}`} onClick={() => setDetailsKey(row.key)}>{row.contratos}</Button></td>
             <td className="px-3 py-3 text-right font-semibold tabular-nums">{row.contratos409}</td>
             <td className={cn('px-3 py-3 tabular-nums', row.porcentagem === null ? 'text-slate-400' : row.porcentagem >= 80 ? 'bg-emerald-50 text-emerald-800' : row.porcentagem >= 50 ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-700')}>

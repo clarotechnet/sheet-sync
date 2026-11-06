@@ -23,8 +23,8 @@ const DARK = '#17212b';
 const MUTED = '#64748b';
 const RED = '#e31325';
 const NUMBER = new Intl.NumberFormat('pt-BR');
-const widths = [64, 116, 376, 96, 112, 132, 150, 218, 240];
-const headers = ['#', 'Login', 'Nome', 'Contratos', 'Contratos 409', '% 409', 'Retorno credenciados', 'Cidade', 'Supervisor'];
+const widths = [116, 440, 96, 112, 132, 150, 218, 240];
+const headers = ['Login', 'Nome', 'Contratos', 'Contratos 409', '% 409', 'Retorno credenciados', 'Cidade', 'Supervisor'];
 const formatDate = (date: string) => date.split('-').reverse().join('/');
 const formatTime = (date: string) => new Date(date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 const percentage = (value: number | null) => value === null ? '-' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -105,10 +105,10 @@ function drawHeader(painter: Painter, report: TechnicianRankingReport) {
 }
 
 function prepareRows(painter: Painter, report: TechnicianRankingReport): PreparedRow[] {
-  const cells = report.rows.map((row) => [String(row.position), row.login, row.nome,
+  const cells = report.rows.map((row) => [row.login, row.nome,
     NUMBER.format(row.contratos), NUMBER.format(row.contratos409), percentage(row.porcentagem), NUMBER.format(row.retornosCredenciados), row.cidade, row.supervisor]);
   return cells.map((values, index) => {
-    const lines = values.map((value, column) => painter.wrap(value || '-', widths[column] - 24, 16, column === 2));
+    const lines = values.map((value, column) => painter.wrap(value || '-', widths[column] - 24, 16, column === 1));
     return { lines, height: Math.max(44, Math.max(...lines.map((value) => value.length)) * 21 + 18),
       position: index + 1, percentage: report.rows[index].porcentagem };
   });
@@ -131,7 +131,7 @@ function drawTable(painter: Painter, page: TablePage, top: number) {
     row.lines.forEach((lines, column) => {
       const width = widths[column];
       let color = DARK;
-      const isPercentage = column === 5;
+      const isPercentage = column === 4;
       if (isPercentage && row.percentage !== null) {
         const value = row.percentage ?? 0;
         const background = value >= 80 ? '#ecfdf5' : value >= 50 ? '#fffbeb' : '#fff1f2';
@@ -140,10 +140,10 @@ function drawTable(painter: Painter, page: TablePage, top: number) {
         painter.rect(left + 12, y + row.height - 13, width - 24, 4, '#e4e8eb');
         painter.rect(left + 12, y + row.height - 13, (width - 24) * Math.max(0, Math.min(100, value)) / 100, 4, color);
       }
-      const numeric = [0, 3, 4, 6].includes(column);
+      const numeric = [2, 3, 5].includes(column);
       lines.forEach((line, index) => painter.text(line, numeric ? left + width - 12 : left + 12,
         y + (row.height - lines.length * 21) / 2 + (isPercentage ? 13 : 16) + index * 21, 16, isPercentage && row.percentage === null ? MUTED : color,
-        [2, 4, 5].includes(column), numeric ? 'right' : 'left'));
+        [1, 3, 4].includes(column), numeric ? 'right' : 'left'));
       left += width;
     });
     y += row.height;

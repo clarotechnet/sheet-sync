@@ -84,13 +84,6 @@ const getShortName = (name: string) => {
   return `${parts[0]} ${parts[parts.length - 1]}`;
 };
 
-const getRankColor = (rank: number) => {
-  if (rank === 1) return 'bg-amber-100 text-amber-700 border-amber-300';
-  if (rank === 2) return 'bg-slate-100 text-slate-700 border-slate-300';
-  if (rank === 3) return 'bg-orange-100 text-orange-700 border-orange-300';
-  return 'bg-muted text-muted-foreground border-border';
-};
-
 export const RevisitasRanking: React.FC = () => {
   const { filteredData } = useDashboard();
   const [rankingMode, setRankingMode] = useState<RankingMode>('porcentagem');
@@ -422,7 +415,6 @@ export const RevisitasRanking: React.FC = () => {
               <table className="w-full min-w-[680px] border-collapse text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
                   <tr className="border-b text-left text-xs uppercase text-muted-foreground">
-                    <th className="w-16 px-5 py-3 text-center">Pos.</th>
                     <th className="px-4 py-3">Técnico ofensor</th>
                     <th className="px-4 py-3 text-right">OS</th>
                     <th className="px-4 py-3 text-right">Revisitas</th>
@@ -431,16 +423,11 @@ export const RevisitasRanking: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {ranking.map((item, index) => {
+                  {ranking.map((item) => {
                     const faixa = getFaixaRevisita(item);
                     const config = FAIXAS[faixa];
                     return (
                       <tr key={item.tecnico} className="border-b transition-colors last:border-0 hover:bg-muted/40">
-                        <td className="px-5 py-3 text-center">
-                          <span className={cn('inline-flex h-7 min-w-7 items-center justify-center rounded border px-1.5 text-xs font-bold', getRankColor(index + 1))}>
-                            {index + 1}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 font-medium">{item.tecnico}</td>
                         <td className="px-4 py-3 text-right tabular-nums">{item.quantidadeOS}</td>
                         <td className="px-4 py-3 text-right font-semibold tabular-nums">{item.revisitas}</td>

@@ -61,3 +61,15 @@ test('PDF starts a separate page for each supervisor and omits registration/retu
   assert.ok(!output.includes('sem cadastro'));
   assert.ok(!output.includes('sem atribui'));
 });
+
+test('PDF omits position headings and values while preserving the ordered technician data',()=>{
+  const report=buildTechnicianRankingReport([row({login:'ZALFA',contratos:12,contratos409:9,retornosCredenciados:4}),row({login:'ZBETA',contratos:20,contratos409:10,retornosCredenciados:6})],filters,null,now);
+  report.rows[0].position=987654321; report.rows[1].position=876543219;
+  const output=createTechnicianRankingReportPdf(report).output();
+  assert.ok(!output.includes('(#) Tj'));
+  assert.ok(!output.includes('987654321')); assert.ok(!output.includes('876543219'));
+  assert.ok(!output.includes('(1) Tj')); assert.ok(!output.includes('(2) Tj'));
+  assert.ok(output.includes('ZALFA')); assert.ok(output.includes('ZBETA'));
+  assert.ok(output.indexOf('ZALFA')<output.indexOf('ZBETA'));
+  for (const value of ['12','9','4','20','10','6','75%','50%']) assert.ok(output.includes(`(${value}) Tj`),value);
+});
