@@ -160,7 +160,8 @@ export default function Gatilhos() {
         open={importOpen}
         onOpenChange={setImportOpen}
         importing={hook.isImporting}
-        onImport={hook.importWorkbook}
+        onPrepare={hook.prepareImport}
+        onImport={hook.importBatch}
       />
 
       <GatilhoVinculoDialog

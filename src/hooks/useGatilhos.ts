@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { externalSupabase } from '@/integrations/supabase/externalClient';
 import type { ColaboradorCadastrado, TecnicoFrente } from '@/types/comissionamento';
 import { buildLiveGatilhosRanking, readClosedGatilhos } from '@/utils/gatilhosHistory';
+import { prepareGatilhosImport, validateGatilhosImportBatch } from '@/utils/gatilhosImport';
+import type { GatilhosImportBatch } from '@/utils/gatilhosImport';
 import type {
   GatilhoFaixa,
-  GatilhoImportRow,
   GatilhoFechamento,
   GatilhoResultadoFechado,
   GatilhoResultado,
@@ -27,34 +27,6 @@ const EMPTY_STATE: GatilhosDataState & { fechamentos: GatilhoFechamento[]; closu
 const errorMessage = (caught: unknown, fallback: string) =>
   typeof caught === 'object' && caught !== null && 'message' in caught ? String(caught.message) : fallback;
 
-const normalizeLabel = (value: unknown) =>
-  String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, ' ')
-    .trim()
-    .toLocaleLowerCase('pt-BR');
-
-const parseDecimal = (value: unknown) => {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const cleaned = String(value ?? '')
-    .replace(/R\$/gi, '')
-    .replace(/\s/g, '')
-    .replace(/\.(?=.*[,])/g, '')
-    .replace(',', '.')
-    .replace(/[^0-9.-]/g, '');
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const parseExternalId = (value: unknown) => {
-  if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value));
-  return String(value ?? '').trim().replace(/\.0+$/, '');
-};
-
-const findHeader = (headers: unknown[], expected: string) =>
-  headers.findIndex((header) => normalizeLabel(header) === normalizeLabel(expected));
-
 export const getDefaultGatilhoPeriod = () => {
   const today = new Date();
   const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
@@ -69,66 +41,12 @@ export const getDefaultGatilhoPeriod = () => {
   return { inicio: format(firstDay), fim: format(yesterday) };
 };
 
-const parseGatilhosWorkbook = async (file: File): Promise<GatilhoImportRow[]> => {
-  const workbook = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array' });
-  const sheetName = workbook.SheetNames.find(
-    (name) => normalizeLabel(name) === 'comiss sintetico',
-  );
-
-  if (!sheetName) {
-    throw new Error('A aba "Comiss.Sintético" não foi encontrada no arquivo.');
-  }
-
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
-    header: 1,
-    defval: null,
-    raw: true,
-  });
-
-  const headers = rows[0] || [];
-  const indexes = {
-    id: findHeader(headers, 'Id'),
-    valor: findHeader(headers, 'Valor'),
-    instalador: findHeader(headers, 'Valor Instalador'),
-    auxiliar: findHeader(headers, 'Valor Auxiliar'),
-    deslocamento: findHeader(headers, 'Valor Deslocamento'),
-  };
-
-  if (Object.values(indexes).some((index) => index < 0)) {
-    throw new Error('A aba Comiss.Sintético não possui todas as colunas esperadas.');
-  }
-
-  const parsed = rows.slice(1).flatMap((row) => {
-    const id = parseExternalId(row[indexes.id]);
-    if (!id) return [];
-
-    return [{
-      id_externo: id,
-      valor: parseDecimal(row[indexes.valor]),
-      valor_instalador: parseDecimal(row[indexes.instalador]),
-      valor_auxiliar: parseDecimal(row[indexes.auxiliar]),
-      valor_deslocamento: parseDecimal(row[indexes.deslocamento]),
-    }];
-  });
-
-  if (parsed.length === 0) throw new Error('Nenhum resultado válido foi encontrado na planilha.');
-
-  const ids = new Set<string>();
-  for (const row of parsed) {
-    if (ids.has(row.id_externo)) {
-      throw new Error(`O ID ${row.id_externo} aparece mais de uma vez na aba Comiss.Sintético.`);
-    }
-    ids.add(row.id_externo);
-  }
-
-  return parsed;
-};
-
 export function useGatilhos() {
   const [state, setState] = useState(EMPTY_STATE);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const importInProgress = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
@@ -292,21 +210,37 @@ export function useGatilhos() {
     } finally { setIsClosing(false); }
   }, [assertOpen, fetchData, state.closureAvailable]);
 
-  const importWorkbook = useCallback(async (
-    file: File,
+  const prepareImport = useCallback(async (
+    files: File[],
     periodoInicio: string,
-    periodoFim: string,
   ) => {
     assertOpen(periodoInicio);
+    if (importInProgress.current) throw new Error('Uma atualização de gatilhos já está em andamento.');
+    importInProgress.current = true;
     setIsImporting(true);
     setError(null);
     try {
-      const rows = await parseGatilhosWorkbook(file);
+      return await prepareGatilhosImport(files, state.vinculos);
+    } finally {
+      importInProgress.current = false;
+      setIsImporting(false);
+    }
+  }, [assertOpen, state.vinculos]);
+
+  const importBatch = useCallback(async (batch: GatilhosImportBatch, periodoInicio: string, periodoFim: string, confirmPartial: boolean) => {
+    assertOpen(periodoInicio);
+    validateGatilhosImportBatch(batch, confirmPartial);
+    if (importInProgress.current) throw new Error('Uma atualização de gatilhos já está em andamento.');
+    importInProgress.current = true;
+    setIsImporting(true);
+    setError(null);
+    try {
+      const { rows, arquivoNome } = batch;
       const { data, error: importError } = await externalSupabase.rpc('substituir_gatilhos_resultados', {
         p_dados: rows,
         p_periodo_inicio: periodoInicio,
         p_periodo_fim: periodoFim,
-        p_arquivo_nome: file.name,
+        p_arquivo_nome: arquivoNome,
       });
       if (importError) {
         const message = [importError.message, importError.details, importError.hint]
@@ -318,6 +252,7 @@ export function useGatilhos() {
       await fetchData();
       return Number(data) || rows.length;
     } finally {
+      importInProgress.current = false;
       setIsImporting(false);
     }
   }, [assertOpen, fetchData]);
@@ -392,7 +327,8 @@ export function useGatilhos() {
     isImporting,
     error: error || closedView?.error || null,
     fetchData,
-    importWorkbook,
+    prepareImport,
+    importBatch,
     savePontuacao,
     saveVinculo,
     deleteVinculo,
