@@ -279,7 +279,7 @@ export const RevisitasRanking: React.FC = () => {
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
                 <BarChart3 className="h-5 w-5 text-primary" />
-                Top 10 técnicos
+                Técnicos
               </CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
                 {rankingMode === 'porcentagem' ? 'Taxa de revisita sobre a base de OS' : 'Quantidade absoluta de revisitas'}
